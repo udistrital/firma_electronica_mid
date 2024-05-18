@@ -1,0 +1,8 @@
+Flask
+nuxeo[oauth2]
+flask_swagger_ui
+cryptography
+pdfminer
+PyPDF2 < 3.0.0
+pdfminer.six
+flask_restx
