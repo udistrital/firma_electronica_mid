@@ -1,65 +1,37 @@
 from flask import Flask, jsonify, Blueprint, request, send_from_directory
 from controllers import controllerFirma
-from DatosPrueba import documents
-from flask_swagger_ui import get_swaggerui_blueprint
-from flask_restx import Resource
-from nuxeo.client import Nuxeo
+from flask_restx import Resource, Api
+from models.model_params import define_parameters
+from conf.conf import api_cors_config
+from flask_cors import cross_origin, CORS
 #Creo función para capturar la app de server y poder hacer routing
 def addRutas(app_main):
-    app_main.register_blueprint(docControl)
+    app_main.register_blueprint(docControl, url_prefix='/v1')
 #Uso Blueprint para poder utilizar la función route
 docControl=Blueprint('docControl', __name__)
-
+CORS(docControl)
 #----------INICIO SWAGGER --------------
-@docControl.route('/static/<path:path>')
-def send_swagger(path):
-    return send_from_directory('static',path)
-SWAGGER_URL='/swagger'
-API_URL='/static/swagger.json'
-swaggerui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL,
-    API_URL,
-    config={
-        'app_name': "API de Firma electrónica"
-    }
-)
-docControl.register_blueprint(swaggerui_blueprint,url_prefix=SWAGGER_URL)
+docDocumentacion = Api(docControl, version='1.0',title="firma_electronica", description='API para la firma electrónica de documentos',doc='/swagger')
+docFirmacontroller = docDocumentacion.namespace("firma_electronica", description="methods for electronic signature process")
+model_params=define_parameters(docDocumentacion)
 #----------FIN SWAGGER ----------------
 
 #Ruta de Home
-@docControl.route('/')
+@docControl.route('/home')
 def home():
     return jsonify({'message':'Todo ok'})
 
-#GETALL para traer documentos
-@docControl.route('/documents', methods=['GET'])
-def getDocuments():
-    return controllerFirma.getAll()
-
-
-#GETONE
-@docControl.route('/documents/<string:titulo>')
-def getDocument(titulo):
-    return controllerFirma.getOne(titulo)
-
-#POST
-@docControl.route('/documents', methods=['POST'])
-def addDocument():
-    return controllerFirma.post()
-
-#PUT
-@docControl.route('/documents/<string:titulo_doc>', methods=['PUT'])
-def editDocument(titulo_doc):
-    return controllerFirma.put(titulo_doc)
-
-#DELETE
-@docControl.route('/documents/<string:titulo_doc>', methods=['DELETE'])
-def deleteDoc(titulo_doc):
-    return controllerFirma.delete(titulo_doc)
-
 #Firma electrónica
-@docControl.route('/firma_electronica')
-def firmaElectronica():
-    body=request.get_json()
-    controllerFirma.postFirmaElectronica(body)
+@docFirmacontroller.route('/firma_electronica')
+class docFirmaElectronica(Resource):
+    @docDocumentacion.doc(responses={
+        200: 'Success',
+        500: 'Nuxeo Error',
+        400: 'Bad request'
+    }, body=model_params['upload_model'])
+    @docFirmacontroller.expect(model_params['request_parser'])
+    @cross_origin(**api_cors_config)
+    def post(self):
+        body=request.get_json()
+        return controllerFirma.postFirmaElectronica(body)
 #Verificación Firma electrónica

@@ -2,7 +2,6 @@ import os
 from flask import Flask, jsonify, request, send_from_directory
 from conf import conf
 from controllers import error
-from DatosPrueba import documents
 from routers import router
 
 app = Flask(__name__) #Creo la app de servidor

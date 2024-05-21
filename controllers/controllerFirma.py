@@ -1,47 +1,8 @@
 import logging, json, requests, os, base64
 from flask import Flask,jsonify,request, Response
-from DatosPrueba import documents
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
-def getAll():
-    return jsonify(documents)
 
-def getOne(titulo):
-    documentFound=[document for document in documents if document['titulo']==titulo]
-    if (len(documentFound)>0):
-        return jsonify({"document": documentFound[0]})
-    return jsonify({'message':'Documento no entontrado'})
-
-def post():
-    newDocument={
-        "formato":request.json['formato'],
-        "titulo":request.json['titulo'],
-        "hash":request.json['hash']
-    }
-    documents.append(newDocument)
-    return jsonify({"message":"Documento agregado","documentos": documents})
-
-def put(titulo_doc):
-    documentFound=[document for document in documents if document['titulo']==titulo_doc]
-    if (len(documentFound)>0):
-        documentFound[0]['formato']=request.json['formato']
-        documentFound[0]['titulo']=request.json['titulo']
-        documentFound[0]['hash']=request.json['hash']
-        return jsonify({
-            "message": "Documento actualizado",
-            "document": documentFound[0]
-        })
-    return jsonify({"message": "documento no encontrado"})
-
-def delete(titulo_doc):
-    documentFound=[document for document in documents if document['titulo']==titulo_doc]
-    if(len(documentFound)>0):
-        documents.remove(documentFound[0])
-        return jsonify({
-            "message": "Documento eliminado",
-            "documents": documents
-        })
-    return jsonify({"message":"Documento no entontrado"})
 def postFirmaElectronica(body):
     try:
         data=body
