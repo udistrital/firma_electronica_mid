@@ -71,6 +71,15 @@ def postFirmaElectronica(body):
                 'TipoDocumento' :  res_json,
                 'Activo': True
             }
+
+            putUpdateJson = {
+                "IdTipoDocumento": data[i]['IdTipoDocumento'],
+                "nombre": data[i]['nombre'],
+                "metadatos": all_metadata,
+                "descripcion": data[i]['descripcion'],
+                "file": data[i]['file'],
+                "idDocumento": responsePostDoc["Id"]
+            }
     except Exception as e:
         logging.error("type error: "+str(e))
     
