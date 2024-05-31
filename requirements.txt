@@ -9,3 +9,4 @@ pdfminer.six
 flask_restx
 reportlab
 fillpdf
+flask-cors
