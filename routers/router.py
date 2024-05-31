@@ -1,18 +1,30 @@
-from flask import Flask, jsonify, Blueprint, request, send_from_directory
-from controllers import controllerFirma
+from flask import  jsonify, Blueprint, request
 from flask_restx import Resource, Api
+from controllers import healthCheck, controllerFirma
 from models.model_params import define_parameters
 from conf.conf import api_cors_config
 from flask_cors import cross_origin, CORS
+
 #Creo función para capturar la app de server y poder hacer routing
+
 def addRutas(app_main):
+    app_main.register_blueprint(healthCheckController)
     app_main.register_blueprint(docControl, url_prefix='/v1')
+
+healthCheckController = Blueprint('healthCheckController', __name__, url_prefix='/v1')
+CORS(healthCheckController)
+
+@healthCheckController.route('/')
+def _():
+    return healthCheck.healthCheck(docDocumentacion)
+
 #Uso Blueprint para poder utilizar la función route
 docControl=Blueprint('docControl', __name__)
 CORS(docControl)
 #----------INICIO SWAGGER --------------
 docDocumentacion = Api(docControl, version='1.0',title="firma_electronica", description='API para la firma electrónica de documentos',doc='/swagger')
 docFirmacontroller = docDocumentacion.namespace("firma_electronica", description="methods for electronic signature process")
+
 model_params=define_parameters(docDocumentacion)
 #----------FIN SWAGGER ----------------
 

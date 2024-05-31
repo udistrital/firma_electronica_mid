@@ -1,0 +1,141 @@
+{
+    "swagger": "2.0",
+    "basePath": "/v1",
+    "paths": {
+        "/firma_electronica/firma_electronica": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    },
+                    "500": {
+                        "description": "Nuxeo Error"
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    }
+                },
+                "summary": "Permite firmar un documento y subirlo a nuxeo consumiendo a gestor documental",
+                "description": "Parameters\n----------\nrequest : json\n    Json Body {Document}, Documento que ser\u00e1 firmado\n\nReturns\n-------\nResponse\n    Respuesta con cuerpo, status y en formato json",
+                "operationId": "post_doc_firma_electronica",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/upload_resquest"
+                            }
+                        }
+                    }
+                ],
+                "tags": [
+                    "firma_electronica"
+                ]
+            }
+        }
+    },
+    "info": {
+        "title": "firma_electronica",
+        "version": "1.0",
+        "description": "API para la firma electr\u00f3nica de documentos"
+    },
+    "produces": [
+        "application/json"
+    ],
+    "consumes": [
+        "application/json"
+    ],
+    "tags": [
+        {
+            "name": "firma_electronica",
+            "description": "methods for electronic signature process"
+        }
+    ],
+    "definitions": {
+        "upload_resquest": {
+            "properties": {
+                "IdTipoDocumento": {
+                    "type": "integer"
+                },
+                "nombre": {
+                    "type": "string"
+                },
+                "metadatos": {
+                    "$ref": "#/definitions/documentos_crud_metadata"
+                },
+                "firmantes": {
+                    "$ref": "#/definitions/firmantes_info"
+                },
+                "representantes": {
+                    "$ref": "#/definitions/representantes_info"
+                },
+                "descripcion": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "documentos_crud_metadata": {
+            "properties": {
+                "dato_a": {
+                    "type": "string"
+                },
+                "dato_b": {
+                    "type": "string"
+                },
+                "dato_n": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "firmantes_info": {
+            "properties": {
+                "nombre": {
+                    "type": "string"
+                },
+                "cargo": {
+                    "type": "string"
+                },
+                "tipoId": {
+                    "type": "string"
+                },
+                "identificacion": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "representantes_info": {
+            "properties": {
+                "nombre": {
+                    "type": "string"
+                },
+                "cargo": {
+                    "type": "string"
+                },
+                "tipoId": {
+                    "type": "string"
+                },
+                "identificacion": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "responses": {
+        "ParseError": {
+            "description": "When a mask can't be parsed"
+        },
+        "MaskError": {
+            "description": "When any error occurs on mask"
+        }
+    }
+}

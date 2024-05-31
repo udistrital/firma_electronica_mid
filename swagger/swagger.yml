@@ -1,0 +1,93 @@
+basePath: /v1
+consumes:
+- application/json
+definitions:
+  documentos_crud_metadata:
+    properties:
+      dato_a:
+        type: string
+      dato_b:
+        type: string
+      dato_n:
+        type: string
+    type: object
+  firmantes_info:
+    properties:
+      cargo:
+        type: string
+      identificacion:
+        type: string
+      nombre:
+        type: string
+      tipoId:
+        type: string
+    type: object
+  representantes_info:
+    properties:
+      cargo:
+        type: string
+      identificacion:
+        type: string
+      nombre:
+        type: string
+      tipoId:
+        type: string
+    type: object
+  upload_resquest:
+    properties:
+      IdTipoDocumento:
+        type: integer
+      descripcion:
+        type: string
+      file:
+        type: string
+      firmantes:
+        $ref: '#/definitions/firmantes_info'
+      metadatos:
+        $ref: '#/definitions/documentos_crud_metadata'
+      nombre:
+        type: string
+      representantes:
+        $ref: '#/definitions/representantes_info'
+    type: object
+info:
+  description: API para la firma electrónica de documentos
+  title: firma_electronica
+  version: '1.0'
+paths:
+  /firma_electronica/firma_electronica:
+    post:
+      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
+        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
+        \ con cuerpo, status y en formato json"
+      operationId: post_doc_firma_electronica
+      parameters:
+      - in: body
+        name: payload
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/upload_resquest'
+          type: array
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad request
+        '500':
+          description: Nuxeo Error
+      summary: Permite firmar un documento y subirlo a nuxeo consumiendo a gestor
+        documental
+      tags:
+      - firma_electronica
+produces:
+- application/json
+responses:
+  MaskError:
+    description: When any error occurs on mask
+  ParseError:
+    description: When a mask can't be parsed
+swagger: '2.0'
+tags:
+- description: methods for electronic signature process
+  name: firma_electronica

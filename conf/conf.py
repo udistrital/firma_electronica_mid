@@ -2,7 +2,7 @@ import os
 import sys
 
 # Environmen variables list
-variables = ['API_PORT', 'NUXEO_URL', 'NUXEO_USERNAME', 'NUXEO_PASSWORD', 'DOCUMENTOS_CRUD_URL', 'ENCRYPTION_KEY']
+variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL']
 
 api_cors_config = {
     "origins": ["*"],
