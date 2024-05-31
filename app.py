@@ -8,4 +8,4 @@ app = Flask(__name__) #Creo la app de servidor
 error.add_error_handler(app)
 router.addRutas(app)
 if __name__=='__main__':
-    app.run(debug=True,port=4000)
+    app.run(debug=True,port=int(os.environ['API_PORT']))

@@ -32,6 +32,19 @@ class docFirmaElectronica(Resource):
     @docFirmacontroller.expect(model_params['request_parser'])
     @cross_origin(**api_cors_config)
     def post(self):
+        """
+            Permite firmar un documento y subirlo a nuxeo consumiendo a gestor documental
+
+            Parameters
+            ----------
+            request : json
+                Json Body {Document}, Documento que será firmado
+
+            Returns
+            -------
+            Response
+                Respuesta con cuerpo, status y en formato json
+        """
         body=request.get_json()
         return controllerFirma.postFirmaElectronica(body)
 #Verificación Firma electrónica

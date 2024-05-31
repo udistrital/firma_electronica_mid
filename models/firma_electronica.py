@@ -1,7 +1,7 @@
 
 
 import os
-
+import base64
 from cryptography.fernet import Fernet
 
 # Imports ElectronicSign
@@ -401,4 +401,17 @@ class ElectronicSign:
             output_file.write(outputStream)
 
         return
+    
+    def docFirmadoBase64(self):
+        '''
+            Convierte el documento firmado a base 64 para que pueda ser recibido en gestor documental por putUpdate
+        '''
+        with open("documents/documentSignedFlattened.pdf","rb") as pdf_file:
+            # Leer el contenido del archivo        
+            pdf_bytes = pdf_file.read()        
+            # Convertir los bytes a base64        
+            base64_bytes = base64.b64encode(pdf_bytes)        
+            # Convertir los bytes base64 a una cadena        
+            base64_string = base64_bytes.decode('utf-8')
+        return base64_string
     #_________________________________________
