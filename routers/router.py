@@ -22,16 +22,11 @@ def _():
 docControl=Blueprint('docControl', __name__)
 CORS(docControl)
 #----------INICIO SWAGGER --------------
-docDocumentacion = Api(docControl, version='1.0',title="firma_electronica", description='API para la firma electrónica de documentos',doc='/swagger')
-docFirmacontroller = docDocumentacion.namespace("firma_electronica", description="methods for electronic signature process")
+docDocumentacion = Api(docControl, version='1.0',title="firma_electronica_mid", description='API para la firma electrónica de documentos',doc='/swagger')
+docFirmacontroller = docDocumentacion.namespace("firma_electronica_mid", description="methods for electronic signature process")
 
 model_params=define_parameters(docDocumentacion)
 #----------FIN SWAGGER ----------------
-
-#Ruta de Home
-@docControl.route('/home')
-def home():
-    return jsonify({'message':'Todo ok'})
 
 #Firma electrónica
 @docFirmacontroller.route('/firma_electronica')
