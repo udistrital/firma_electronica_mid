@@ -47,4 +47,3 @@ python api.py
 | -- | -- | -- |
 | [![Build Status](https://hubci.portaloas.udistrital.edu.co/api/badges/udistrital/firma_electronica/status.svg?ref=refs/heads/develop)](https://hubci.portaloas.udistrital.edu.co/udistrital/firma_electronica) | [![Build Status](https://hubci.portaloas.udistrital.edu.co/api/badges/udistrital/firma_electronica/status.svg?ref=refs/heads/release/0.0.1)](https://hubci.portaloas.udistrital.edu.co/udistrital/firma_electronica) | [![Build Status](https://hubci.portaloas.udistrital.edu.co/api/badges/udistrital/firma_electronica/status.svg?ref=refs/heads/master)](https://hubci.portaloas.udistrital.edu.co/udistrital/firma_electronica) |
 
-

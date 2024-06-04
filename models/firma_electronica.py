@@ -2,6 +2,7 @@
 
 import os
 import base64
+
 from cryptography.fernet import Fernet
 
 # Imports ElectronicSign
@@ -11,7 +12,7 @@ from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from reportlab.pdfgen import canvas
-from PyPDF2 import PdfFileWriter, PdfFileReader
+from pypdf import PdfWriter, PdfReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pdfminer.high_level import extract_pages
@@ -156,7 +157,7 @@ class ElectronicSign:
 
 
         if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfFileReader(pdfIn).getPage(0).mediabox[3] - self.YHEEADER)
+            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
 
 
         c = canvas.Canvas('documents/signature.pdf')
@@ -172,7 +173,7 @@ class ElectronicSign:
         y = y - 10
         c.drawString(x + 20, y,"Firmado Digitalmente")
 
-        # c.setFont('Vera', 8)
+        c.setFont('Vera', 8)
         t = c.beginText()
 
         if len(datos["firmantes"]) > 1:
@@ -185,7 +186,6 @@ class ElectronicSign:
             y = y - 15
             t.setTextOrigin(x, y)
             t.textLine("Firmante:")
-
 
         count = 1
         t.setFont('Vera', 8)
@@ -279,11 +279,11 @@ class ElectronicSign:
                 pdf abierto en buffer como lectura
         """
 
-        signPdf = PdfFileReader(open("documents/signature.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
+        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
-        output_file = PdfFileWriter()
+        output_file = PdfWriter()
 
         # Number of pages in input document
         page_count = len(documentPdf.pages)
@@ -307,11 +307,11 @@ class ElectronicSign:
             pdfIn : _io.BufferedReader
                 pdf abierto en buffer como lectura
         """
-        signPdf = PdfFileReader(open("documents/signature.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
+        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
-        output_file = PdfFileWriter()
+        output_file = PdfWriter()
 
         # Number of pages in input document
         page_count = len(documentPdf.pages)
@@ -382,9 +382,9 @@ class ElectronicSign:
         """
 
         pdfIn = open("documents/documentSigned.pdf","rb")
-        signPdf = PdfFileReader(open("documents/firma.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
-        output_file = PdfFileWriter()
+        signPdf = PdfReader(open("documents/firma.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
+        output_file = PdfWriter()
 
         page_count = len(documentPdf.pages)
         for page_number in range(page_count-1):
@@ -401,17 +401,17 @@ class ElectronicSign:
             output_file.write(outputStream)
 
         return
-    
+
     def docFirmadoBase64(self):
         '''
             Convierte el documento firmado a base 64 para que pueda ser recibido en gestor documental por putUpdate
         '''
         with open("documents/documentSignedFlattened.pdf","rb") as pdf_file:
-            # Leer el contenido del archivo        
-            pdf_bytes = pdf_file.read()        
-            # Convertir los bytes a base64        
-            base64_bytes = base64.b64encode(pdf_bytes)        
-            # Convertir los bytes base64 a una cadena        
+            # Leer el contenido del archivo
+            pdf_bytes = pdf_file.read()
+            # Convertir los bytes a base64
+            base64_bytes = base64.b64encode(pdf_bytes)
+            # Convertir los bytes base64 a una cadena
             base64_string = base64_bytes.decode('utf-8')
         return base64_string
     #_________________________________________

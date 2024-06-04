@@ -9,7 +9,7 @@ def postFirmaElectronica(data):
         for i in range(len(data)):
             IdDocumento = data[i]['IdTipoDocumento']
             res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/tipo_documento/'+str(IdDocumento))
-            
+
             if res.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(data[i]['IdTipoDocumento'])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
 
@@ -33,11 +33,11 @@ def postFirmaElectronica(data):
             responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
             firma_electronica = firmar(str(data[i]['file']))
             electronicSign = ElectronicSign()
-            firma_completa = electronicSign.firmaCompleta(firma_electronica["llaves"]["firma"], responsePostDoc["Id"])
+            #firma_completa = electronicSign.firmaCompleta(firma_electronica["llaves"]["firma"], responsePostDoc["Id"])
             objFirmaElectronica = {
                 "Activo": True,
                 "CodigoAutenticidad": firma_electronica["codigo_autenticidad"],
-                "FirmaEncriptada": firma_completa,
+                "FirmaEncriptada": firma_electronica["llaves"]["firma"],
                 "Firmantes": json.dumps(jsonFirmantes),
                 "Llaves": json.dumps(firma_electronica["llaves"]),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
