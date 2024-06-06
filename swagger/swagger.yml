@@ -52,10 +52,10 @@ definitions:
     type: object
 info:
   description: API para la firma electrónica de documentos
-  title: firma_electronica
+  title: firma_electronica_mid
   version: '1.0'
 paths:
-  /firma_electronica/firma_electronica:
+  /firma_electronica_mid/firma_electronica:
     post:
       description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
         \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
@@ -79,7 +79,7 @@ paths:
       summary: Permite firmar un documento y subirlo a nuxeo consumiendo a gestor
         documental
       tags:
-      - firma_electronica
+      - firma_electronica_mid
 produces:
 - application/json
 responses:
@@ -90,4 +90,4 @@ responses:
 swagger: '2.0'
 tags:
 - description: methods for electronic signature process
-  name: firma_electronica
+  name: firma_electronica_mid
