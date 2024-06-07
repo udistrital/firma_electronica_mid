@@ -33,8 +33,8 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
-        key = os.environ['ENCRYPTION_KEY']
-        self.fernet = Fernet(key)
+        #key = os.environ['ENCRYPTION_KEY']
+        #self.fernet = Fernet(key)
 
     def lastPageItems(self, pdfIn):
         """
