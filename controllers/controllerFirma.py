@@ -4,6 +4,21 @@ from models.firma import firmar
 from models.firma_electronica import ElectronicSign
 
 def postFirmaElectronica(data):
+    """
+        Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
+        y parametros como firmantes y representantes para estampado de firma electrónica en documento pdf
+
+        Parameters
+        ----------
+        body : json
+            json con parametros como tipoDocumento, nombre, descripcion, metadatos, base64, firmantes y representantes
+        nuxeo : Nuxeo
+            cliente nuxeo
+
+        Return
+        ----------
+        json : info documento
+    """
     response_array=[]
     try:
         for i in range(len(data)):
@@ -99,3 +114,51 @@ def postFirmaElectronica(data):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
             return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
         return Response(json.dumps({'Status':'500','Error':str(e)}), status=500, mimetype='application/json')
+def postVerify(data):
+    """
+        Verificar firma electrónica de documentos (pdf) cargados y firmados digitalmente,
+
+        Parameters
+        ----------
+        body : json
+            json con hash de firma electrónica
+        nuxeo : Nuxeo
+            cliente nuxeo
+
+        Return
+        ----------
+        json : info documento si existe firma electrónica
+    """
+    response_array = []
+    try:
+        for i in range(len(data)):
+            resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/firma_electronica/'+str(data[i]["firma"]))
+            if resFirma.status_code != 200:
+                return Response(resFirma, resFirma.status_code, mimetype='application/json')
+            responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
+            firma = responseGetFirma["FirmaEncriptada"].encode()
+            if "firma" not in responseGetFirma["DocumentoId"]["Metadatos"]:
+                error_dict = {'Message': "document not signed", 'code': '404'}
+                return Response(json.dumps(error_dict), status=404, mimetype='application/json')
+            elif firma in responseGetFirma["DocumentoId"]["Metadatos"].encode():
+                responseNuxeo = requests.get(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
+                # succes_dict = {'Status': responseNuxeo, 'code': '200'}
+                # return Response(json.dumps(succes_dict), status=200, mimetype='application/json')
+                resString = str(responseNuxeo)
+                resString = resString.replace("'","")
+                resString = resString.lstrip("b")
+                responseNuxeo = json.loads(resString)
+                response_array.append(responseNuxeo)
+            else:
+                error_dict = {'Message': "electronic signatures do not match", 'code': '404'}
+                return Response(json.dumps(error_dict), status=404, mimetype='application/json')
+        return Response(json.dumps({'Status':'200', 'res':response_array}), status=200, mimetype='application/json')
+    except Exception as e:
+            logging.error("type error: " + str(e))
+            if str(e) == "'firma'":
+                error_dict = {'Status':'the field firma is required','Code':'400'}
+                return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+            elif '400' in str(e):
+                DicStatus = {'Status':'invalid request body', 'Code':'400'}
+                return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
+            return Response(json.dumps({'Status':'500','Error':str(e)}), status=500, mimetype='application/json')

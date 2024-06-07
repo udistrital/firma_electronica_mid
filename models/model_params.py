@@ -34,5 +34,9 @@ def define_parameters(api):
         'descripcion': fields.String,
         'file': fields.String
     })]
+
+    firma_model = [api.model('firma_request',{
+        'firma': fields.String,
+    })]
     
     return {k: v for k, v in vars().items() if not k.startswith('__')}
