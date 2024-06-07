@@ -54,4 +54,30 @@ class docFirmaElectronica(Resource):
         """
         body=request.get_json()
         return controllerFirma.postFirmaElectronica(body)
+
 #Verificación Firma electrónica
+@docFirmacontroller.route('/verify')
+class docPostVerify(Resource):
+    @docDocumentacion.doc(responses={
+        200: 'Success',
+        500: 'Nuxeo error',
+        400: 'Bad request'
+    }, body=model_params['firma_model'])
+    @docFirmacontroller.expect(model_params['request_parser'])
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            permite verificar la firma electronica de un documento
+
+            Parameters
+            ----------
+            request : json
+                Json Body {firma}, firma electronica encriptada con el id
+
+            Returns
+            -------
+            Response
+                Respuesta con cuerpo, status y en formato json
+        """
+        body = request.get_json()
+        return controllerFirma.postVerify(body)

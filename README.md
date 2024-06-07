@@ -1,4 +1,4 @@
-# firma_electronica
+# firma_electronica_mid
 
 API MID para la implementación de firma electronica.
 
@@ -22,7 +22,7 @@ GESTOR_DOCUMENTAL=[URL API gestor_documental_mid]
 ### Ejecución del Proyecto
 ```shell
 #1. Obtener el repositorio con git
-git clone https://github.com/udistrital/firma_electronica.git
+git clone https://github.com/udistrital/firma_electronica_mid.git
 
 #2. Moverse a la carpeta del repositorio
 cd firma_electronica
