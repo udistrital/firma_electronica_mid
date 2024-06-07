@@ -9,9 +9,9 @@ from flask_cors import cross_origin, CORS
 
 def addRutas(app_main):
     app_main.register_blueprint(healthCheckController)
-    app_main.register_blueprint(docControl, url_prefix='/')
+    app_main.register_blueprint(docControl, url_prefix='/v1')
 
-healthCheckController = Blueprint('healthCheckController', __name__, url_prefix='/v1')
+healthCheckController = Blueprint('healthCheckController', __name__, url_prefix='/')
 CORS(healthCheckController)
 
 @healthCheckController.route('/')
