@@ -22,6 +22,12 @@ def postFirmaElectronica(data):
     response_array=[]
     try:
         for i in range(len(data)):
+            if len(str(data[i]['file'])) < 1000:
+                error_dict = {
+                    'Status':'invalid pdf file',
+                    'Code':'400'
+                }
+                return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             IdDocumento = data[i]['IdTipoDocumento']
             res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/tipo_documento/'+str(IdDocumento))
 
