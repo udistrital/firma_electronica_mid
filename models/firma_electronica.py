@@ -342,7 +342,7 @@ class ElectronicSign:
                 firma con id encriptadas en un solo texto
         """
         pdfIn = open("documents/documentToSign.pdf","rb")
-        yPosition = self.signPosition(pdfIn)
+        yPosition = self.signPosition(pdfIn)-70
         suficienteEspacio = self.signature(pdfIn, yPosition, datos)
 
         if suficienteEspacio:
