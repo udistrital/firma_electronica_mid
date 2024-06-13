@@ -65,7 +65,6 @@ class ElectronicSign:
                     for character in text_line:
                         if isinstance(character,LTChar):    
                             y= lobj.bbox[1]
-                            print("Y: " + str(y) + " getText: " + str(lobj.get_text()))
                             yText.append(y)
 
         return yText
