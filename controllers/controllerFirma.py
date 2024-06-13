@@ -83,7 +83,7 @@ def postFirmaElectronica(data):
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
-            '''
+
             all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
             DicPostDoc = {
                 'Metadatos': all_metadata,
@@ -105,7 +105,7 @@ def postFirmaElectronica(data):
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
-            response_array.append(responsePutUpdate)'''
+            response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         return Response(json.dumps({'Status':'200', 'res':responsePutUpdate}), status=200, mimetype='application/json')
     except Exception as e:
