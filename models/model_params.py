@@ -11,26 +11,26 @@ def define_parameters(api):
         'dato_n': fields.String
     })
 
-    firmantes_model =[api.model('firmantes_info', {
+    firmantes_model =api.model('firmantes_info', {
         'nombre': fields.String,
         'cargo': fields.String,
         'tipoId': fields.String,
         'identificacion': fields.String,
-    })]
+    })
 
-    representantes_model =[api.model('representantes_info', {
+    representantes_model =api.model('representantes_info', {
         'nombre': fields.String,
         'cargo': fields.String,
         'tipoId': fields.String,
         'identificacion': fields.String,
-    })]
+    })
 
     upload_model = [api.model('upload_resquest', {
         'IdTipoDocumento': fields.Integer,
         'nombre': fields.String,
         'metadatos': fields.Nested(metadata_doc_crud_model),
-        'firmantes': fields.Nested(firmantes_model),
-        'representantes': fields.Nested(representantes_model),
+        'firmantes': fields.List(fields.Nested(firmantes_model)),
+        'representantes': fields.List(fields.Nested(representantes_model)),
         'descripcion': fields.String,
         'file': fields.String
     })]

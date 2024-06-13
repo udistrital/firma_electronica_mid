@@ -33,7 +33,14 @@ def postFirmaElectronica(data):
 
             if res.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(data[i]['IdTipoDocumento'])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
-
+            #Verificar que el base64 sea un pdf
+            if not ElectronicSign.verificaEsPdf(data[i]['file']):
+                error_dict = {
+                    'Status':'El archivo no es un pdf',
+                    'Code':'400'
+                }
+                return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+            #Fin verificar que el base 64 sea un pdf
             res_json = json.loads(res.content.decode('utf8').replace("'", '"'))
             blob = base64.b64decode(data[i]['file'])
             with open(os.path.expanduser('./documents/documentToSign.pdf'), 'wb') as fout:
@@ -116,6 +123,14 @@ def postFirmaElectronica(data):
         elif str(e) == "'metadatos'":
             error_dict = {'Status':'the field metadatos is required','Code':'400'}
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+        elif str(e) == "'descripcion'":
+            error_dict = {'Status':'the field descripcion is required','Code':'400'}
+            return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+        elif str(e) == "'representantes'":
+            error_dict = {'Status':'the field representantes is required','Code':'400'}
+            return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+        elif str(e) == "'firmantes'":
+            error_dict = {'Status':'the field firmantes is required','Code':'400'}
         elif '400' in str(e):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
             return Response(json.dumps(DicStatus), status=400, mimetype='application/json')

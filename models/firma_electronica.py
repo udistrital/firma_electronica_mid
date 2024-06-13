@@ -6,7 +6,7 @@ import base64
 from cryptography.fernet import Fernet
 
 # Imports ElectronicSign
-from pdfminer.layout import LAParams, LTTextBox
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTCurve, LTChar
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
@@ -61,8 +61,11 @@ class ElectronicSign:
 
         for lobj in page:
             if isinstance(lobj, LTTextBox):
-                x, y, text = lobj.bbox[0], lobj.bbox[3], lobj.get_text()
-                yText.append(y)
+                for text_line in lobj:
+                    for character in text_line:
+                        if isinstance(character,LTChar):    
+                            y= lobj.bbox[1]
+                            yText.append(y)
 
         return yText
 
@@ -70,12 +73,13 @@ class ElectronicSign:
         yText = self.lastPageItems(pdfIn)
         yText.reverse()
 
-        for i in range(1,19):
+        for i in range(0,len(yText)):
+            print(str(yText[i]))
             if yText[i] > 80:
                 y = yText[i]
                 break
 
-        return int(y-20)
+        return int(y)
 
     def descrypt(self, codigo):
         """
@@ -342,7 +346,7 @@ class ElectronicSign:
                 firma con id encriptadas en un solo texto
         """
         pdfIn = open("documents/documentToSign.pdf","rb")
-        yPosition = self.signPosition(pdfIn)-70
+        yPosition = self.signPosition(pdfIn)
         suficienteEspacio = self.signature(pdfIn, yPosition, datos)
 
         if suficienteEspacio:
@@ -415,3 +419,16 @@ class ElectronicSign:
             base64_string = base64_bytes.decode('utf-8')
         return base64_string
     #_________________________________________
+    def verificaEsPdf(base64_string):
+        try:
+            # Decodificar el string Base64
+            decoded_bytes = base64.b64decode(base64_string)
+
+            # Verificar el encabezado y pie de un archivo PDF
+            if decoded_bytes[:5] == b'%PDF-' and b'%%EOF' in decoded_bytes:
+                return True
+            else:
+                return False
+        except Exception as e:
+            # Si hay un error en la decodificación, no es un Base64 válido para un PDF
+            return False
