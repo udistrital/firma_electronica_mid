@@ -74,7 +74,6 @@ class ElectronicSign:
         yText.reverse()
 
         for i in range(0,len(yText)):
-            print(str(yText[i]))
             if yText[i] > 80:
                 y = yText[i]
                 break
@@ -127,7 +126,7 @@ class ElectronicSign:
 
         x = 80
         y = yPosition
-        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 #Espacios
+        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 6 #Espacios
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -256,6 +255,19 @@ class ElectronicSign:
         t.setTextOrigin(x+140, y)
         t.textLine(fechaHoraActual)
 
+        #Enlace verificacion
+        y = y - 10
+        t.setFont('VeraBd', 8)
+        y = y - 10
+        t.setTextOrigin(x, y)
+        t.textLine("Para verificar la autenticidad de la presente firma electrónica")
+        t.textLine("consulte el código suministrado en el sitio web indicado:")
+        t.textLine(" ")
+        y= y - 20
+        x_link = x
+        y_link = y
+        #Fin enlace
+
         c.drawText(t)
         c.showPage()
         c.save()
@@ -266,6 +278,17 @@ class ElectronicSign:
         t.setTextOrigin(x_pos, y_pos)
         t.textLine(firma)
 
+        c.drawText(t)
+        c.showPage()
+        c.save()
+
+        #Dibujar plantilla de enlace
+        link_ver = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+        c = canvas.Canvas('documents/enlace.pdf')
+        c.setFont('Vera', 8)
+        t = c.beginText()
+        t.setTextOrigin(x_link, y_link)
+        t.textLine(link_ver)
         c.drawText(t)
         c.showPage()
         c.save()
@@ -346,7 +369,7 @@ class ElectronicSign:
                 firma con id encriptadas en un solo texto
         """
         pdfIn = open("documents/documentToSign.pdf","rb")
-        yPosition = self.signPosition(pdfIn)
+        yPosition = self.signPosition(pdfIn) - 10
         suficienteEspacio = self.signature(pdfIn, yPosition, datos)
 
         if suficienteEspacio:
@@ -404,6 +427,25 @@ class ElectronicSign:
         with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
             output_file.write(outputStream)
 
+        pdfIn = open("documents/documentSignedFlattened.pdf","rb")
+        signPdf = PdfReader(open("documents/enlace.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
+        output_file = PdfWriter()
+
+        page_count = len(documentPdf.pages)
+        for page_number in range(page_count-1):
+            input_page = documentPdf.pages[page_number]
+
+            output_file.add_page(input_page)
+
+        input_page = documentPdf.pages[page_count-1]
+
+        input_page.merge_page(signPdf.pages[0])
+        output_file.add_page(input_page)
+
+        with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
+            output_file.write(outputStream)
+
         return
 
     def docFirmadoBase64(self):
@@ -418,8 +460,11 @@ class ElectronicSign:
             # Convertir los bytes base64 a una cadena
             base64_string = base64_bytes.decode('utf-8')
         return base64_string
-    #_________________________________________
+
     def verificaEsPdf(base64_string):
+        '''
+            Verifica que el base 64 ingresado corresponda a un pdf
+        '''
         try:
             # Decodificar el string Base64
             decoded_bytes = base64.b64decode(base64_string)
