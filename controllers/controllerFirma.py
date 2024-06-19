@@ -105,6 +105,12 @@ def postFirmaElectronica(data):
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
+            #Inicio modificación de metadatos para quitar llave privada
+            meta_mod = json.loads(responsePutUpdate['res']['Metadatos'])
+            meta_mod['llaves'].pop('llave_privada', None)
+            responsePutUpdate['res']['Metadatos'] = json.dumps(meta_mod, separators=(',',':'))
+            responsePutUpdate=responsePutUpdate
+            #Fin modificación metadatos
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         return Response(json.dumps({'Status':'200', 'res':responsePutUpdate}), status=200, mimetype='application/json')
