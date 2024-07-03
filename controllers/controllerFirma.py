@@ -175,6 +175,19 @@ def postVerify(data):
                 resString = resString.replace("'","")
                 resString = resString.lstrip("b")
                 responseNuxeo = json.loads(resString)
+                #INICIO COMPARACIÓN
+                base64Nuxeo = str(responseNuxeo['file'])
+                base64User = str (data[i]["fileUp"])
+                urlFileUp = str (data[0]["urlFileUp"])
+                fileEqual = True #Por defecto true ya que de ser así sólo se muestra un Doc
+                if base64User != "":
+                    if base64Nuxeo == base64User:
+                        fileEqual = True
+                    else:
+                        fileEqual = False
+                #FIN COMPARACIÓN
+                responseNuxeo['fileEqual'] = fileEqual
+                responseNuxeo['urlFileUp'] = urlFileUp
                 response_array.append(responseNuxeo)
             else:
                 error_dict = {'Message': "electronic signatures do not match", 'code': '404'}
