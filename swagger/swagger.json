@@ -35,6 +35,40 @@
                     "firma_electronica"
                 ]
             }
+        },
+        "/firma_electronica/verify": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    },
+                    "500": {
+                        "description": "Nuxeo error"
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    }
+                },
+                "summary": "permite verificar la firma electronica de un documento",
+                "description": "Parameters\n----------\nrequest : json\n    Json Body {firma}, firma electronica encriptada con el id\n\nReturns\n-------\nResponse\n    Respuesta con cuerpo, status y en formato json",
+                "operationId": "post_doc_post_verify",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/firma_request"
+                            }
+                        }
+                    }
+                ],
+                "tags": [
+                    "firma_electronica"
+                ]
+            }
         }
     },
     "info": {
@@ -67,10 +101,16 @@
                     "$ref": "#/definitions/documentos_crud_metadata"
                 },
                 "firmantes": {
-                    "$ref": "#/definitions/firmantes_info"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/firmantes_info"
+                    }
                 },
                 "representantes": {
-                    "$ref": "#/definitions/representantes_info"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/representantes_info"
+                    }
                 },
                 "descripcion": {
                     "type": "string"
@@ -124,6 +164,20 @@
                     "type": "string"
                 },
                 "identificacion": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "firma_request": {
+            "properties": {
+                "firma": {
+                    "type": "string"
+                },
+                "fileUp": {
+                    "type": "string"
+                },
+                "urlFileUp": {
                     "type": "string"
                 }
             },
