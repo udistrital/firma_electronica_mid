@@ -2,7 +2,7 @@
     "swagger": "2.0",
     "basePath": "/v1",
     "paths": {
-        "/firma_electronica_mid/firma_electronica": {
+        "/firma_electronica/firma_electronica": {
             "post": {
                 "responses": {
                     "200": {
@@ -32,7 +32,7 @@
                     }
                 ],
                 "tags": [
-                    "firma_electronica_mid"
+                    "firma_electronica"
                 ]
             }
         },
@@ -72,7 +72,7 @@
         }
     },
     "info": {
-        "title": "firma_electronica_mid",
+        "title": "firma_electronica",
         "version": "1.0",
         "description": "API para la firma electr\u00f3nica de documentos"
     },
@@ -84,7 +84,7 @@
     ],
     "tags": [
         {
-            "name": "firma_electronica_mid",
+            "name": "firma_electronica",
             "description": "methods for electronic signature process"
         }
     ],
