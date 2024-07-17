@@ -2,7 +2,7 @@
     "swagger": "2.0",
     "basePath": "/v1",
     "paths": {
-        "/firma_electronica/firma_electronica": {
+        "/firma_electronica": {
             "post": {
                 "responses": {
                     "200": {
@@ -36,7 +36,7 @@
                 ]
             }
         },
-        "/firma_electronica/verify": {
+        "/verify": {
             "post": {
                 "responses": {
                     "200": {

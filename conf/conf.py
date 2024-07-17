@@ -2,10 +2,15 @@ import os
 import sys
 
 # Environmen variables list
-variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL']
+variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENTORNO']
+
+if os.environ['ENTORNO'] == "develop":
+    origins = ["*"]
+else:
+    origins = ["*.udistrital.edu.co"]
 
 api_cors_config = {
-    "origins": ["*"],
+    "origins": origins,
     "methods": ["OPTIONS", "GET", "POST"],
     "allow_headers": ["Authorization", "Content-Type"]
 }
