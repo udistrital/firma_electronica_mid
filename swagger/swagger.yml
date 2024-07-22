@@ -68,7 +68,7 @@ info:
   title: firma_electronica
   version: '1.0'
 paths:
-  /firma_electronica/firma_electronica:
+  /firma_electronica:
     post:
       description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
         \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
@@ -93,7 +93,7 @@ paths:
         documental
       tags:
       - firma_electronica
-  /firma_electronica/verify:
+  /verify:
     post:
       description: "Parameters\n----------\nrequest : json\n    Json Body {firma},\
         \ firma electronica encriptada con el id\n\nReturns\n-------\nResponse\n \
