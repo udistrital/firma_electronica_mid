@@ -83,7 +83,9 @@ def postFirmaElectronica(data):
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
-
+            #Inicio modificación metadatos de firma
+            firma_electronica.pop("llaves")
+            #Fin modificación
             all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
             DicPostDoc = {
                 'Metadatos': all_metadata,
@@ -105,12 +107,6 @@ def postFirmaElectronica(data):
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
-            #Inicio modificación de metadatos para quitar llave privada
-            meta_mod = json.loads(responsePutUpdate['res']['Metadatos'])
-            meta_mod['llaves'].pop('llave_privada', None)
-            responsePutUpdate['res']['Metadatos'] = json.dumps(meta_mod, separators=(',',':'))
-            responsePutUpdate=responsePutUpdate
-            #Fin modificación metadatos
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         return Response(json.dumps(responsePutUpdate), status=200, mimetype='application/json')
@@ -137,6 +133,7 @@ def postFirmaElectronica(data):
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif str(e) == "'firmantes'":
             error_dict = {'Status':'the field firmantes is required','Code':'400'}
+            return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif '400' in str(e):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
             return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
@@ -159,6 +156,9 @@ def postVerify(data):
     response_array = []
     try:
         for i in range(len(data)):
+            if str(data[i]["firma"]) == "":
+                error_dict = {'Status': "Field firma is required", 'Code': '400'}
+                return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/firma_electronica/'+str(data[i]["firma"]))
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')

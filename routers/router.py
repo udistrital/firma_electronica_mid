@@ -23,7 +23,7 @@ docControl=Blueprint('docControl', __name__)
 CORS(docControl)
 #----------INICIO SWAGGER --------------
 docDocumentacion = Api(docControl, version='1.0',title="firma_electronica", description='API para la firma electrónica de documentos',doc='/swagger')
-docFirmacontroller = docDocumentacion.namespace("firma_electronica", description="methods for electronic signature process")
+docFirmacontroller = docDocumentacion.namespace("firma_electronica",path="/", description="methods for electronic signature process")
 
 model_params=define_parameters(docDocumentacion)
 #----------FIN SWAGGER ----------------
