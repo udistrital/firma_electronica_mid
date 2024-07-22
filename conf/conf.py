@@ -2,9 +2,9 @@ import os
 import sys
 
 # Environmen variables list
-variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENTORNO']
+variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENVIRONMENT']
 
-if os.environ['ENTORNO'] == "develop":
+if os.environ['ENVIRONMENT'] == "develop":
     origins = ["*"]
 else:
     origins = ["*.udistrital.edu.co"]
