@@ -2,12 +2,9 @@ import os
 import sys
 
 # Environmen variables list
-# Cambio temporal mientras se ajusta la variable
-#variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENVIRONMENT']
-variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL']
+variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENVIRONMENT']
 
-varTemp = "develop"
-if varTemp == "develop":
+if os.environ['ENVIRONMENT'] == "develop":
     origins = ["*"]
 else:
     origins = ["*.udistrital.edu.co"]
