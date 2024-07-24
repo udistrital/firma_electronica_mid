@@ -3,7 +3,8 @@ import sys
 
 # Environmen variables list
 variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENVIRONMENT']
-
+print("PRIMERO")
+print(os.environ)
 if os.environ['ENVIRONMENT'] == "dev":
     origins = ["*"]
 else:
