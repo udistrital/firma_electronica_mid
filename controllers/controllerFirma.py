@@ -59,19 +59,19 @@ def postFirmaElectronica(data):
             }
             resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', json=DicPostDoc).content
             responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
-            firma_electronica = firmar(str(data[i]['file']))
             electronicSign = ElectronicSign()
-            #firma_completa = electronicSign.firmaCompleta(firma_electronica["llaves"]["firma"], responsePostDoc["Id"])
             objFirmaElectronica = {
                 "Activo": True,
-                "CodigoAutenticidad": firma_electronica["codigo_autenticidad"],
-                "FirmaEncriptada": firma_electronica["llaves"]["firma"],
+                "CodigoAutenticidad": '',
+                "FirmaEncriptada": '',
                 "Firmantes": json.dumps(jsonFirmantes),
-                "Llaves": json.dumps(firma_electronica["llaves"]),
+                "Llaves": json.dumps({}),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
+
             reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
             responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
+
             datos = {
                 "firma": responsePostFirma["Id"],
                 "firmantes": data[i]["firmantes"],
@@ -83,6 +83,21 @@ def postFirmaElectronica(data):
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
+            firma_electronica = firmar(str(electronicSign.docFirmadoBase64()))
+            #Inicio update firma
+            objFirmaElectronica = {
+                "Activo": True,
+                "CodigoAutenticidad": firma_electronica["codigo_autenticidad"],
+                "FirmaEncriptada": firma_electronica["llaves"]["firma"],
+                "Firmantes": json.dumps(jsonFirmantes),
+                "Llaves": json.dumps(firma_electronica["llaves"]),
+                "DocumentoId": {"Id": responsePostDoc["Id"]},
+            }
+            reqFirma = requests.put(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], json=objFirmaElectronica)
+            if reqFirma.status_code != 200:
+                return Response(json.dumps({'Status':'404','Error': str("the id "+str(responsePostFirma["Id"])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
+            #fin update firma
+
             #Inicio modificación metadatos de firma
             firma_electronica.pop("llaves")
             #Fin modificación
@@ -105,6 +120,7 @@ def postFirmaElectronica(data):
                 "file": str(electronicSign.docFirmadoBase64()),
                 "idDocumento": responsePostDoc["Id"]
             }]
+
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
             response_array.append(responsePutUpdate)
