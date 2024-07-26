@@ -240,9 +240,10 @@ class ElectronicSign:
         t.setFont('VeraBd', 8)
         y = y - 10
         t.setTextOrigin(x, y)
-        t.textLine("Firma electrónica:")
-        x_pos = x+140
-        y_pos = y
+        t.textLine("Código de autenticación:")
+        t.setTextOrigin(x + 140, y)
+        t.setFont('Vera', 8)
+        t.textLine(firma)
 
         y = y - 5
 
@@ -264,31 +265,12 @@ class ElectronicSign:
         t.textLine("consulte el código suministrado en el sitio web indicado:")
         t.textLine(" ")
         y= y - 20
-        x_link = x
-        y_link = y
+        link_ver = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+        t.setFont("Vera", 8)
+        t.setTextOrigin(x, y)
+        t.textLine(link_ver)
         #Fin enlace
 
-        c.drawText(t)
-        c.showPage()
-        c.save()
-
-        c = canvas.Canvas('documents/firma.pdf')
-        c.setFont('Vera', 8)
-        t = c.beginText()
-        t.setTextOrigin(x_pos, y_pos)
-        t.textLine(firma)
-
-        c.drawText(t)
-        c.showPage()
-        c.save()
-
-        #Dibujar plantilla de enlace
-        link_ver = "https://pruebasverificacion.portaloas.udistrital.edu.co"
-        c = canvas.Canvas('documents/enlace.pdf')
-        c.setFont('Vera', 8)
-        t = c.beginText()
-        t.setTextOrigin(x_link, y_link)
-        t.textLine(link_ver)
         c.drawText(t)
         c.showPage()
         c.save()
@@ -376,10 +358,6 @@ class ElectronicSign:
             self.estamparUltimaPagina(pdfIn)
         else:
             self.estamparNuevaPagina(pdfIn)
-
-        fillpdfs.flatten_pdf('./documents/documentSigned.pdf', './documents/documentSigned.pdf', True)
-        self.estampa_on_flattened()
-
         return
 
     def firmaCompleta(self, firma, id):
@@ -401,58 +379,12 @@ class ElectronicSign:
         """
         firmaID = str(id) + "/////" + firma
         return self.hashCode(firmaID).decode()
-
-    def estampa_on_flattened(self):
-
-        """
-            Estampa el hash en la firma final
-        """
-
-        pdfIn = open("documents/documentSigned.pdf","rb")
-        signPdf = PdfReader(open("documents/firma.pdf", "rb"))
-        documentPdf = PdfReader(pdfIn)
-        output_file = PdfWriter()
-
-        page_count = len(documentPdf.pages)
-        for page_number in range(page_count-1):
-            input_page = documentPdf.pages[page_number]
-            input_page.scale_by(0.5)
-            output_file.add_page(input_page)
-
-        input_page = documentPdf.pages[page_count-1]
-        input_page.scale_by(0.5)
-        input_page.merge_page(signPdf.pages[0])
-        output_file.add_page(input_page)
-
-        with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
-            output_file.write(outputStream)
-
-        pdfIn = open("documents/documentSignedFlattened.pdf","rb")
-        signPdf = PdfReader(open("documents/enlace.pdf", "rb"))
-        documentPdf = PdfReader(pdfIn)
-        output_file = PdfWriter()
-
-        page_count = len(documentPdf.pages)
-        for page_number in range(page_count-1):
-            input_page = documentPdf.pages[page_number]
-
-            output_file.add_page(input_page)
-
-        input_page = documentPdf.pages[page_count-1]
-
-        input_page.merge_page(signPdf.pages[0])
-        output_file.add_page(input_page)
-
-        with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
-            output_file.write(outputStream)
-
-        return
-
+    
     def docFirmadoBase64(self):
         '''
             Convierte el documento firmado a base 64 para que pueda ser recibido en gestor documental por putUpdate
         '''
-        with open("documents/documentSignedFlattened.pdf","rb") as pdf_file:
+        with open("documents/documentSigned.pdf","rb") as pdf_file:
             # Leer el contenido del archivo
             pdf_bytes = pdf_file.read()
             # Convertir los bytes a base64
