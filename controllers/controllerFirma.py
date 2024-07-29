@@ -164,10 +164,10 @@ def postVerify(data):
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
             firma = responseGetFirma["FirmaEncriptada"].encode()
-            if "firma" not in responseGetFirma["DocumentoId"]["Metadatos"]:
+            if responseGetFirma["DocumentoId"]["Enlace"]=="":
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
-            elif firma in responseGetFirma["DocumentoId"]["Metadatos"].encode():
+            elif responseGetFirma["DocumentoId"]["Enlace"]!="":
                 responseNuxeo = requests.get(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
                 # succes_dict = {'Status': responseNuxeo, 'code': '200'}
                 # return Response(json.dumps(succes_dict), status=200, mimetype='application/json')
