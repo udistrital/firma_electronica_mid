@@ -240,7 +240,7 @@ class ElectronicSign:
         t.setFont('VeraBd', 8)
         y = y - 10
         t.setTextOrigin(x, y)
-        t.textLine("Firma electrónica:")
+        t.textLine("Código de verificación:")
         x_pos = x+140
         y_pos = y
 
