@@ -159,7 +159,7 @@ def postVerify(data):
             if str(data[i]["firma"]) == "":
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
-            resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/firma_electronica/'+str(data[i]["firma"]))
+            resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
