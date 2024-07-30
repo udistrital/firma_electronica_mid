@@ -1,17 +1,18 @@
 
 
 import os
+import base64
 
 from cryptography.fernet import Fernet
 
 # Imports ElectronicSign
-from pdfminer.layout import LAParams, LTTextBox
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTFigure, LTImage, LTCurve, LTChar
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from reportlab.pdfgen import canvas
-from PyPDF2 import PdfFileWriter, PdfFileReader
+from pypdf import PdfWriter, PdfReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pdfminer.high_level import extract_pages
@@ -32,8 +33,8 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
-        key = os.environ['ENCRYPTION_KEY']
-        self.fernet = Fernet(key)
+        #key = os.environ['ENCRYPTION_KEY']
+        #self.fernet = Fernet(key)
 
     def lastPageItems(self, pdfIn):
         """
@@ -60,8 +61,11 @@ class ElectronicSign:
 
         for lobj in page:
             if isinstance(lobj, LTTextBox):
-                x, y, text = lobj.bbox[0], lobj.bbox[3], lobj.get_text()
-                yText.append(y)
+                for text_line in lobj:
+                    for character in text_line:
+                        if isinstance(character,LTChar):    
+                            y= lobj.bbox[1]
+                            yText.append(y)
 
         return yText
 
@@ -69,12 +73,12 @@ class ElectronicSign:
         yText = self.lastPageItems(pdfIn)
         yText.reverse()
 
-        for i in range(1,19):
+        for i in range(0,len(yText)):
             if yText[i] > 80:
                 y = yText[i]
                 break
 
-        return int(y-20)
+        return int(y)
 
     def descrypt(self, codigo):
         """
@@ -122,7 +126,7 @@ class ElectronicSign:
 
         x = 80
         y = yPosition
-        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 #Espacios
+        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 6 #Espacios
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -156,7 +160,7 @@ class ElectronicSign:
 
 
         if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfFileReader(pdfIn).getPage(0).mediabox[3] - self.YHEEADER)
+            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
 
 
         c = canvas.Canvas('documents/signature.pdf')
@@ -172,7 +176,7 @@ class ElectronicSign:
         y = y - 10
         c.drawString(x + 20, y,"Firmado Digitalmente")
 
-        # c.setFont('Vera', 8)
+        c.setFont('Vera', 8)
         t = c.beginText()
 
         if len(datos["firmantes"]) > 1:
@@ -185,7 +189,6 @@ class ElectronicSign:
             y = y - 15
             t.setTextOrigin(x, y)
             t.textLine("Firmante:")
-
 
         count = 1
         t.setFont('Vera', 8)
@@ -237,7 +240,7 @@ class ElectronicSign:
         t.setFont('VeraBd', 8)
         y = y - 10
         t.setTextOrigin(x, y)
-        t.textLine("Firma electrónica:")
+        t.textLine("Código de verificación:")
         x_pos = x+140
         y_pos = y
 
@@ -252,6 +255,19 @@ class ElectronicSign:
         t.setTextOrigin(x+140, y)
         t.textLine(fechaHoraActual)
 
+        #Enlace verificacion
+        y = y - 10
+        t.setFont('VeraBd', 8)
+        y = y - 10
+        t.setTextOrigin(x, y)
+        t.textLine("Para verificar la autenticidad de la presente firma electrónica")
+        t.textLine("consulte el código suministrado en el sitio web indicado:")
+        t.textLine(" ")
+        y= y - 20
+        x_link = x
+        y_link = y
+        #Fin enlace
+
         c.drawText(t)
         c.showPage()
         c.save()
@@ -262,6 +278,17 @@ class ElectronicSign:
         t.setTextOrigin(x_pos, y_pos)
         t.textLine(firma)
 
+        c.drawText(t)
+        c.showPage()
+        c.save()
+
+        #Dibujar plantilla de enlace
+        link_ver = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+        c = canvas.Canvas('documents/enlace.pdf')
+        c.setFont('Vera', 8)
+        t = c.beginText()
+        t.setTextOrigin(x_link, y_link)
+        t.textLine(link_ver)
         c.drawText(t)
         c.showPage()
         c.save()
@@ -279,11 +306,11 @@ class ElectronicSign:
                 pdf abierto en buffer como lectura
         """
 
-        signPdf = PdfFileReader(open("documents/signature.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
+        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
-        output_file = PdfFileWriter()
+        output_file = PdfWriter()
 
         # Number of pages in input document
         page_count = len(documentPdf.pages)
@@ -307,11 +334,11 @@ class ElectronicSign:
             pdfIn : _io.BufferedReader
                 pdf abierto en buffer como lectura
         """
-        signPdf = PdfFileReader(open("documents/signature.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
+        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
-        output_file = PdfFileWriter()
+        output_file = PdfWriter()
 
         # Number of pages in input document
         page_count = len(documentPdf.pages)
@@ -342,7 +369,7 @@ class ElectronicSign:
                 firma con id encriptadas en un solo texto
         """
         pdfIn = open("documents/documentToSign.pdf","rb")
-        yPosition = self.signPosition(pdfIn)
+        yPosition = self.signPosition(pdfIn) - 10
         suficienteEspacio = self.signature(pdfIn, yPosition, datos)
 
         if suficienteEspacio:
@@ -382,9 +409,9 @@ class ElectronicSign:
         """
 
         pdfIn = open("documents/documentSigned.pdf","rb")
-        signPdf = PdfFileReader(open("documents/firma.pdf", "rb"))
-        documentPdf = PdfFileReader(pdfIn)
-        output_file = PdfFileWriter()
+        signPdf = PdfReader(open("documents/firma.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
+        output_file = PdfWriter()
 
         page_count = len(documentPdf.pages)
         for page_number in range(page_count-1):
@@ -400,5 +427,53 @@ class ElectronicSign:
         with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
             output_file.write(outputStream)
 
+        pdfIn = open("documents/documentSignedFlattened.pdf","rb")
+        signPdf = PdfReader(open("documents/enlace.pdf", "rb"))
+        documentPdf = PdfReader(pdfIn)
+        output_file = PdfWriter()
+
+        page_count = len(documentPdf.pages)
+        for page_number in range(page_count-1):
+            input_page = documentPdf.pages[page_number]
+
+            output_file.add_page(input_page)
+
+        input_page = documentPdf.pages[page_count-1]
+
+        input_page.merge_page(signPdf.pages[0])
+        output_file.add_page(input_page)
+
+        with open("documents/documentSignedFlattened.pdf", "wb") as outputStream:
+            output_file.write(outputStream)
+
         return
-    #_________________________________________
+
+    def docFirmadoBase64(self):
+        '''
+            Convierte el documento firmado a base 64 para que pueda ser recibido en gestor documental por putUpdate
+        '''
+        with open("documents/documentSignedFlattened.pdf","rb") as pdf_file:
+            # Leer el contenido del archivo
+            pdf_bytes = pdf_file.read()
+            # Convertir los bytes a base64
+            base64_bytes = base64.b64encode(pdf_bytes)
+            # Convertir los bytes base64 a una cadena
+            base64_string = base64_bytes.decode('utf-8')
+        return base64_string
+
+    def verificaEsPdf(base64_string):
+        '''
+            Verifica que el base 64 ingresado corresponda a un pdf
+        '''
+        try:
+            # Decodificar el string Base64
+            decoded_bytes = base64.b64decode(base64_string)
+
+            # Verificar el encabezado y pie de un archivo PDF
+            if decoded_bytes[:5] == b'%PDF-' and b'%%EOF' in decoded_bytes:
+                return True
+            else:
+                return False
+        except Exception as e:
+            # Si hay un error en la decodificación, no es un Base64 válido para un PDF
+            return False

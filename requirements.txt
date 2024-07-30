@@ -1,3 +1,4 @@
+requests >= 2.12.2
 Flask
 nuxeo[oauth2]
 flask_swagger_ui
@@ -6,3 +7,7 @@ pdfminer
 PyPDF2 < 3.0.0
 pdfminer.six
 flask_restx
+reportlab
+fillpdf
+flask-cors
+pypdf

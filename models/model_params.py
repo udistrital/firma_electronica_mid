@@ -11,11 +11,34 @@ def define_parameters(api):
         'dato_n': fields.String
     })
 
+    firmantes_model =api.model('firmantes_info', {
+        'nombre': fields.String,
+        'cargo': fields.String,
+        'tipoId': fields.String,
+        'identificacion': fields.String,
+    })
+
+    representantes_model =api.model('representantes_info', {
+        'nombre': fields.String,
+        'cargo': fields.String,
+        'tipoId': fields.String,
+        'identificacion': fields.String,
+    })
+
     upload_model = [api.model('upload_resquest', {
         'IdTipoDocumento': fields.Integer,
         'nombre': fields.String,
         'metadatos': fields.Nested(metadata_doc_crud_model),
+        'firmantes': fields.List(fields.Nested(firmantes_model)),
+        'representantes': fields.List(fields.Nested(representantes_model)),
         'descripcion': fields.String,
-        'file': fields.String,
+        'file': fields.String
     })]
+
+    firma_model = [api.model('firma_request',{
+        'firma': fields.String,
+        'fileUp': fields.String,
+        'urlFileUp': fields.String,
+    })]
+    
     return {k: v for k, v in vars().items() if not k.startswith('__')}
