@@ -1,4 +1,7 @@
 import logging, json, requests, os, base64
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from flask import Flask,jsonify,request, Response
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
@@ -29,7 +32,7 @@ def postFirmaElectronica(data):
                 }
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             IdDocumento = data[i]['IdTipoDocumento']
-            res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/tipo_documento/'+str(IdDocumento))
+            res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'tipo_documento/'+str(IdDocumento))
 
             if res.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(data[i]['IdTipoDocumento'])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
@@ -59,19 +62,19 @@ def postFirmaElectronica(data):
             }
             resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', json=DicPostDoc).content
             responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
-            firma_electronica = firmar(str(data[i]['file']))
             electronicSign = ElectronicSign()
-            #firma_completa = electronicSign.firmaCompleta(firma_electronica["llaves"]["firma"], responsePostDoc["Id"])
             objFirmaElectronica = {
                 "Activo": True,
-                "CodigoAutenticidad": firma_electronica["codigo_autenticidad"],
-                "FirmaEncriptada": firma_electronica["llaves"]["firma"],
+                "CodigoAutenticidad": '',
+                "FirmaEncriptada": '',
                 "Firmantes": json.dumps(jsonFirmantes),
-                "Llaves": json.dumps(firma_electronica["llaves"]),
+                "Llaves": json.dumps({}),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
+
             reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
             responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
+
             datos = {
                 "firma": responsePostFirma["Id"],
                 "firmantes": data[i]["firmantes"],
@@ -83,6 +86,21 @@ def postFirmaElectronica(data):
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
+            firma_electronica = firmar(str(electronicSign.docFirmadoBase64()))
+            #Inicio update firma
+            objFirmaElectronica = {
+                "Activo": True,
+                "CodigoAutenticidad": firma_electronica["codigo_autenticidad"],
+                "FirmaEncriptada": firma_electronica["llaves"]["firma"],
+                "Firmantes": json.dumps(jsonFirmantes),
+                "Llaves": json.dumps(firma_electronica["llaves"]),
+                "DocumentoId": {"Id": responsePostDoc["Id"]},
+            }
+            reqFirma = requests.put(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], json=objFirmaElectronica)
+            if reqFirma.status_code != 200:
+                return Response(json.dumps({'Status':'404','Error': str("the id "+str(responsePostFirma["Id"])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
+            #fin update firma
+
             #Inicio modificación metadatos de firma
             firma_electronica.pop("llaves")
             #Fin modificación
@@ -96,7 +114,6 @@ def postFirmaElectronica(data):
                 'TipoDocumento' :  res_json,
                 'Activo': True
             }
-
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
                 "nombre": data[i]['nombre'],
@@ -163,7 +180,6 @@ def postVerify(data):
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
-            firma = responseGetFirma["FirmaEncriptada"].encode()
             if responseGetFirma["DocumentoId"]["Enlace"]=="":
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
@@ -176,14 +192,26 @@ def postVerify(data):
                 resString = resString.lstrip("b")
                 responseNuxeo = json.loads(resString)
                 #INICIO COMPARACIÓN
-                base64Nuxeo = str(responseNuxeo['file'])
+                llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
+                llavePublicaFirmaBD = llavesFirmaBD["llave_publica"]
+                firmaBD = llavesFirmaBD["firma"]
                 base64User = str (data[i]["fileUp"])
                 urlFileUp = str (data[0]["urlFileUp"])
                 fileEqual = True #Por defecto true ya que de ser así sólo se muestra un Doc
+                public_key = load_pem_public_key(base64.b64decode(llavePublicaFirmaBD))
                 if base64User != "":
-                    if base64Nuxeo == base64User:
+                    try:
+                        public_key.verify(
+                            base64.urlsafe_b64decode(firmaBD),
+                            base64User.encode('utf-8'),
+                            padding.PSS(
+                                mgf=padding.MGF1(hashes.SHA256()),
+                                salt_length=padding.PSS.MAX_LENGTH
+                            ),
+                            hashes.SHA256()
+                        )
                         fileEqual = True
-                    else:
+                    except Exception as e:
                         fileEqual = False
                 #FIN COMPARACIÓN
                 responseNuxeo['fileEqual'] = fileEqual
