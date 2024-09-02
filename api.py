@@ -3,9 +3,12 @@ from flask import Flask, jsonify, request, send_from_directory
 from conf import conf
 from controllers import error
 from routers import router
+from xray_python.xray import init_xray
 conf.checkEnv()
 
 app = Flask(__name__) #Creo la app de servidor
+
+init_xray(app) # Inicializamos X-Ray
 
 router.addRutas(app)
 error.add_error_handler(app)

@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from flask import Flask,jsonify,request, Response
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
+from xray_python.request_tools import get_json, post_json, put_json
 
 def postFirmaElectronica(data):
     """
@@ -32,7 +33,8 @@ def postFirmaElectronica(data):
                 }
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             IdDocumento = data[i]['IdTipoDocumento']
-            res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'tipo_documento/'+str(IdDocumento))
+            #res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'tipo_documento/'+str(IdDocumento))
+            res = get_json(str(os.environ['DOCUMENTOS_CRUD_URL'])+'tipo_documento/'+str(IdDocumento), target=None)
 
             if res.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(data[i]['IdTipoDocumento'])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
@@ -60,8 +62,9 @@ def postFirmaElectronica(data):
                 'TipoDocumento':  res_json,
                 'Activo': True
             }
-            resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', json=DicPostDoc).content
-            responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
+            #resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', json=DicPostDoc).content
+            #responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
+            responsePostDoc = post_json(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', DicPostDoc, None)
             electronicSign = ElectronicSign()
             objFirmaElectronica = {
                 "Activo": True,
@@ -72,8 +75,9 @@ def postFirmaElectronica(data):
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
 
-            reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
-            responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
+            #reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
+            #responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
+            responsePostFirma = post_json(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', objFirmaElectronica, None)
 
             datos = {
                 "firma": responsePostFirma["Id"],
@@ -96,8 +100,10 @@ def postFirmaElectronica(data):
                 "Llaves": json.dumps(firma_electronica["llaves"]),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
-            reqFirma = requests.put(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], json=objFirmaElectronica)
-            if reqFirma.status_code != 200:
+            #reqFirma = requests.put(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], json=objFirmaElectronica)
+            reqFirma = put_json(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], objFirmaElectronica, None)
+            #if reqFirma.status_code != 200:
+            if not reqFirma.get("Id") or "Error" in reqFirma :
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(responsePostFirma["Id"])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
             #fin update firma
 
@@ -122,8 +128,9 @@ def postFirmaElectronica(data):
                 "file": str(electronicSign.docFirmadoBase64()),
                 "idDocumento": responsePostDoc["Id"]
             }]
-            reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
-            responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
+            #reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
+            #responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
+            responsePutUpdate = put_json(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', putUpdateJson, None)
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         return Response(json.dumps(responsePutUpdate), status=200, mimetype='application/json')
@@ -176,15 +183,18 @@ def postVerify(data):
             if str(data[i]["firma"]) == "":
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
-            resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))
+            #resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))
+            resFirma = get_json(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]), target=None)
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
-            responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
+            #responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
+            responseGetFirma = resFirma.json()
             if responseGetFirma["DocumentoId"]["Enlace"]=="":
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
             elif responseGetFirma["DocumentoId"]["Enlace"]!="":
-                responseNuxeo = requests.get(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
+                #responseNuxeo = requests.get(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
+                responseNuxeo = get_json(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"]), target=None).content
                 # succes_dict = {'Status': responseNuxeo, 'code': '200'}
                 # return Response(json.dumps(succes_dict), status=200, mimetype='application/json')
                 resString = str(responseNuxeo)
