@@ -7,7 +7,7 @@ variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENV']
 if os.environ['ENV'] == "dev":
     origins = ["*"]
 else:
-    origins = ["*.udistrital.edu.co"]
+    origins = ["*"]
 
 api_cors_config = {
     "origins": origins,
