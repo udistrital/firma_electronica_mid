@@ -60,7 +60,7 @@ def postFirmaElectronica(data):
                 'TipoDocumento':  res_json,
                 'Activo': True
             }
-            resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'/documento', json=DicPostDoc).content
+            resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'documento', json=DicPostDoc).content
             responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
             electronicSign = ElectronicSign()
             objFirmaElectronica = {
