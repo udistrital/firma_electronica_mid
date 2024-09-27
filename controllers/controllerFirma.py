@@ -281,7 +281,7 @@ def FirmaMultiple(data):
                 "Llaves": json.dumps({}),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
-            
+
             if data[i]["etapa_firma"] == 3:
                 reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
                 responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
@@ -300,7 +300,7 @@ def FirmaMultiple(data):
                     "tipo_firma": data[i]["etapa_firma"]
                 }
             electronicSign.estamparFirmaElectronica(datos)
-            
+
             # ------- LÓGICA CONDICIONADA ----
 
             if data[i]["etapa_firma"] == 3:
@@ -327,6 +327,11 @@ def FirmaMultiple(data):
                 #Inicio modificación metadatos de firma
                 firma_electronica.pop("llaves")
                 #Fin modificación
+                #Modificación de metadatos
+                metaDatos["firmantes"] = json.dumps(metaDatos["firmantes"])
+                metaDatos["representantes"] = json.dumps(metaDatos["representantes"])
+                data[i]["metadatos"] = metaDatos
+                #Fin Modificación de metadatos
                 all_metadata = str({** firma_electronica, ** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
 
             putUpdateJson = [{
