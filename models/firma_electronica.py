@@ -156,14 +156,12 @@ class ElectronicSign:
             text.count("\n")
             signPageSize += text.count("\n")
             wraped_representantes.append(text)
-        print("Llega a validación de firma")
         if etapa==3:
             firma = datos['firma']
 
             wraped_firma = "\n".join(wrap(firma, 60))
 
             signPageSize += wraped_firma.count("\n")
-        print("Pasa validación de firma")
         signPageSize *= 10
 
 
