@@ -36,6 +36,40 @@
                 ]
             }
         },
+        "/firma_multiple": {
+            "post": {
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    },
+                    "500": {
+                        "description": "Nuxeo error"
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    }
+                },
+                "summary": "Permite realizar firma m\u00faltiple asincr\u00f3nica utilizando como p\u00e1metro para decidir la etapa en la que se est\u00e1 firmando la clave valor etapa_firma",
+                "description": "Parameters\n----------\nrequest : json\n    Json Body {Document}, Documento que ser\u00e1 firmado\n\nReturns\n-------\nResponse\n    Respuesta con cuerpo, status y en formato json",
+                "operationId": "post_doc_firma_multiple_inicial",
+                "parameters": [
+                    {
+                        "name": "payload",
+                        "required": true,
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/upload_resquest"
+                            }
+                        }
+                    }
+                ],
+                "tags": [
+                    "firma_electronica"
+                ]
+            }
+        },
         "/verify": {
             "post": {
                 "responses": {
@@ -114,6 +148,9 @@
                 },
                 "descripcion": {
                     "type": "string"
+                },
+                "etapa_firma": {
+                    "type": "integer"
                 },
                 "file": {
                     "type": "string"
