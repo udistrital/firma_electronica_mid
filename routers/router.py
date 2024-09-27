@@ -81,3 +81,34 @@ class docPostVerify(Resource):
         """
         body = request.get_json()
         return controllerFirma.postVerify(body)
+    
+#-----Múltiples firmantes -------
+
+#Firma inicial
+
+@docFirmacontroller.route('/firma_multiple')
+class docFirmaMultipleInicial(Resource):
+    @docDocumentacion.doc(responses={
+        200: 'Success',
+        500: 'Nuxeo error',
+        400: 'Bad request'
+    }, body=model_params['firma_multiple_model'])
+    @docFirmacontroller.expect(model_params['request_parser'])
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            Permite realizar firma múltiple asincrónica utilizando como pámetro para decidir la etapa en la que se está firmando la clave valor etapa_firma
+
+            Parameters
+            ----------
+            request : json
+                Json Body {Document}, Documento que será firmado
+
+            Returns
+            -------
+            Response
+                Respuesta con cuerpo, status y en formato json
+        """
+        body=request.get_json()
+        return controllerFirma.FirmaMultiple(body)
+    
