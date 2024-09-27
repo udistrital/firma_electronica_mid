@@ -301,13 +301,6 @@ def FirmaMultiple(data):
                     "tipo_firma": data[i]["etapa_firma"]
                 }
             electronicSign.estamparFirmaElectronica(datos)
-            match data[0]["etapa_firma"]:
-                case 1:
-                    print("INICIAL")
-                case 2:
-                    print("INTERMEDIA")
-                case 3:
-                    print("FINAL")
             
             # ------- LÓGICA CONDICIONADA ----
 
