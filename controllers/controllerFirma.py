@@ -105,19 +105,20 @@ def postFirmaElectronica(data):
             firma_electronica.pop("llaves")
             #Fin modificación
             all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
-
+            docFirmadoBase64 = str(electronicSign.docFirmadoBase64())
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
                 "nombre": data[i]['nombre'],
                 "metadatos": all_metadata,
                 "descripcion": data[i]['descripcion'],
-                "file": str(electronicSign.docFirmadoBase64()),
+                "file": docFirmadoBase64,
                 "idDocumento": responsePostDoc["Id"]
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
+        responsePutUpdate['file'] = docFirmadoBase64
         return Response(json.dumps(responsePutUpdate), status=200, mimetype='application/json')
     except Exception as e:
         logging.error("type error: " + str(e))
