@@ -105,27 +105,20 @@ def postFirmaElectronica(data):
             firma_electronica.pop("llaves")
             #Fin modificación
             all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
-            DicPostDoc = {
-                'Metadatos': all_metadata,
-                "firmantes": data[i]["firmantes"],
-                "representantes": data[i]["representantes"],
-                'Nombre': data[i]['nombre'],
-                "Descripcion": data[i]['descripcion'],
-                'TipoDocumento' :  res_json,
-                'Activo': True
-            }
+            docFirmadoBase64 = str(electronicSign.docFirmadoBase64())
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
                 "nombre": data[i]['nombre'],
                 "metadatos": all_metadata,
                 "descripcion": data[i]['descripcion'],
-                "file": str(electronicSign.docFirmadoBase64()),
+                "file": docFirmadoBase64,
                 "idDocumento": responsePostDoc["Id"]
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
+        responsePutUpdate['file'] = docFirmadoBase64
         return Response(json.dumps(responsePutUpdate), status=200, mimetype='application/json')
     except Exception as e:
         logging.error("type error: " + str(e))
@@ -185,12 +178,7 @@ def postVerify(data):
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
             elif responseGetFirma["DocumentoId"]["Enlace"]!="":
                 responseNuxeo = requests.get(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
-                # succes_dict = {'Status': responseNuxeo, 'code': '200'}
-                # return Response(json.dumps(succes_dict), status=200, mimetype='application/json')
-                resString = str(responseNuxeo)
-                resString = resString.replace("'","")
-                resString = resString.lstrip("b")
-                responseNuxeo = json.loads(resString)
+                responseNuxeo = json.loads(responseNuxeo.decode('utf8').replace("'", '"'))
                 #INICIO COMPARACIÓN
                 llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
                 llavePublicaFirmaBD = llavesFirmaBD["llave_publica"]

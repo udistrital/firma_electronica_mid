@@ -11,3 +11,5 @@ reportlab
 fillpdf
 flask-cors
 pypdf
+pytest
+x-ray
