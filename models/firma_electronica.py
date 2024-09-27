@@ -106,6 +106,193 @@ class ElectronicSign:
         """
         return self.fernet.encrypt(firma.encode())
 
+    #--------- INICIO NUEVA ESTAMPA -------
+    def signature_alter(self, pdfIn, yPosition, datos, etapa):
+        """
+            Crea el estampado dependiendo de la etapa en la que se esté firmando.
+            Parameters
+            ----------
+            pdfIn : _io.BufferedReader
+                pdf abierto en buffer como lectura
+            yPosition : int
+                posición del ultimo elemeento del pdf
+            datos : dict
+                diccionario con datos a estampar {tipo_documento, firmantes, representantes, firma}
+
+            Return
+            ----------
+            String : id y firma encriptados
+            Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
+        """
+
+        link_verificacion = ""
+        if os.environ['ENV'] == "dev":
+            link_verificacion = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+        else:
+            link_verificacion = "https://verificacion.portaloas.udistrital.edu.co"
+
+
+        x = 80
+        y = yPosition
+        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 6 #Espacios
+
+        wraped_firmantes = []
+        for firmante in datos["firmantes"]:
+            cargo = ""
+            if firmante["cargo"] != "":
+                cargo = firmante["cargo"] + ": "
+            text = cargo + firmante["nombre"] + ". " + firmante["tipoId"] + " " + firmante["identificacion"]
+            text = "\n".join(wrap(text, 60))
+            signPageSize += text.count("\n")
+            wraped_firmantes.append(text)
+
+        wraped_representantes = []
+        for representante in datos["representantes"]:
+            cargo = ""
+            if representante["cargo"] != "":
+                cargo = representante["cargo"] + ": "
+            text = cargo + representante["nombre"] + ". " + representante["tipoId"] + " " + representante["identificacion"]
+            text = "\n".join(wrap(text, 60))
+            text.count("\n")
+            signPageSize += text.count("\n")
+            wraped_representantes.append(text)
+        print("Llega a validación de firma")
+        if etapa==3:
+            firma = datos['firma']
+
+            wraped_firma = "\n".join(wrap(firma, 60))
+
+            signPageSize += wraped_firma.count("\n")
+        print("Pasa validación de firma")
+        signPageSize *= 10
+
+
+
+        if(yPosition - self.YFOOTER < signPageSize):
+            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
+
+
+        c = canvas.Canvas('documents/signature.pdf')
+        # Create the signPdf from an image
+        # c = canvas.Canvas('signPdf.pdf')
+
+        # Draw the image at x, y. I positioned the x,y to be where i like here
+        # c.drawImage('test.png', 15, 720)
+        pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
+        pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
+
+        if etapa == 1:
+            c.setFont('VeraBd', 10)
+            y = y - 10
+            c.drawString(x + 20, y,"Firmado Digitalmente")
+
+        c.setFont('Vera', 8)
+        t = c.beginText()
+
+        if len(datos["firmantes"]) > 1:
+            t.setFont('VeraBd', 8)
+            y = y - 15
+            t.setTextOrigin(x, y)
+            t.textLine("Firmantes:")
+        elif len(datos["firmantes"]) == 1:
+            t.setFont('VeraBd', 8)
+            y = y - 15
+            t.setTextOrigin(x, y)
+            t.textLine("Firmante:")
+
+        count = 1
+        t.setFont('Vera', 8)
+        for firmante in wraped_firmantes:
+            if(count > 1):
+                y = y - 10
+            t.setTextOrigin(x+140,y)
+            t.textLines(firmante)
+            y = y-firmante.count("\n")*10
+            count += 1
+
+        if len(wraped_firmantes):
+            y = y - 5
+
+        if len(datos["representantes"]) > 1:
+            t.setFont('VeraBd', 8)
+            y = y - 5
+            t.setTextOrigin(x, y)
+            t.textLine("Representantes:")
+        elif len(datos["representantes"]) == 1:
+            t.setFont('VeraBd', 8)
+            y = y - 5
+            t.setTextOrigin(x, y)
+            t.textLine("Representante:")
+
+        count = 1
+        t.setFont('Vera', 8)
+        for representante in wraped_representantes:
+            if(count > 1):
+                y = y - 10
+            t.setTextOrigin(x+140,y)
+            t.textLines(representante)
+            y = y-representante.count("\n")*10
+            count += 1
+
+        if len(wraped_representantes):
+            y = y - 5
+        y = y - 5
+
+        t.setFont('VeraBd', 8)
+        if etapa==3:
+            y = y - wraped_firma.count("\n")*10
+        t.setTextOrigin(x, y)
+        t.textLine("Fecha y hora:")
+        t.setFont('Vera', 8)
+        fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
+        t.setTextOrigin(x+140, y)
+        t.textLine(fechaHoraActual)
+
+        if etapa == 3:
+            t.setFont('VeraBd', 8)
+            y = y - 15
+            t.setTextOrigin(x, y)
+            t.textLine("Tipo de documento:")
+            t.setFont('Vera', 8)
+            t.setTextOrigin(x+140, y)
+            t.textLine(datos["tipo_documento"])
+
+            y = y - 0
+
+            t.setFont('VeraBd', 8)
+            y = y - 10
+            t.setTextOrigin(x, y)
+            t.textLine("Código de verificación:")
+            t.setTextOrigin(x + 140, y)
+            t.setFont('Vera', 8)
+            t.textLine(firma)
+
+            y = y - 5
+
+            #Enlace verificacion
+            y = y - 10
+            t.setFont('VeraBd', 8)
+            y = y - 10
+            t.setTextOrigin(x, y)
+            t.textLine("Para verificar la autenticidad de la presente firma electrónica")
+            t.textLine("consulte el código suministrado en el sitio web indicado:")
+            t.textLine(" ")
+            y= y - 20
+            link_ver = link_verificacion
+            t.setFont("Vera", 8)
+            t.setTextOrigin(x, y)
+            t.textLine(link_ver)
+            #Fin enlace
+
+        c.drawText(t)
+        c.showPage()
+        c.save()
+
+        espacio = yPosition - self.YFOOTER > signPageSize
+        return espacio
+
+    #--------- FIN NUEVA ESTAMPA --------
+
     def signature(self, pdfIn, yPosition, datos):
         """
             Crea el estampado de la firma electronica
@@ -357,7 +544,13 @@ class ElectronicSign:
         """
         pdfIn = open("documents/documentToSign.pdf","rb")
         yPosition = self.signPosition(pdfIn) - 10
-        suficienteEspacio = self.signature(pdfIn, yPosition, datos)
+        if datos.get('tipo_firma'):
+            if datos['tipo_firma'] != 1:
+                yPosition = yPosition + 15
+            etapa = datos['tipo_firma']
+            suficienteEspacio = self.signature_alter(pdfIn, yPosition, datos, etapa)
+        else:
+            suficienteEspacio = self.signature(pdfIn, yPosition, datos)
 
         if suficienteEspacio:
             self.estamparUltimaPagina(pdfIn)

@@ -48,6 +48,8 @@ definitions:
         type: integer
       descripcion:
         type: string
+      etapa_firma:
+        type: integer
       file:
         type: string
       firmantes:
@@ -91,6 +93,31 @@ paths:
           description: Nuxeo Error
       summary: Permite firmar un documento y subirlo a nuxeo consumiendo a gestor
         documental
+      tags:
+      - firma_electronica
+  /firma_multiple:
+    post:
+      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
+        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
+        \ con cuerpo, status y en formato json"
+      operationId: post_doc_firma_multiple_inicial
+      parameters:
+      - in: body
+        name: payload
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/upload_resquest'
+          type: array
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad request
+        '500':
+          description: Nuxeo error
+      summary: Permite realizar firma múltiple asincrónica utilizando como pámetro
+        para decidir la etapa en la que se está firmando la clave valor etapa_firma
       tags:
       - firma_electronica
   /verify:

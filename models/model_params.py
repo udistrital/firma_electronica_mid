@@ -35,6 +35,17 @@ def define_parameters(api):
         'file': fields.String
     })]
 
+    firma_multiple_model = [api.model('upload_resquest', {
+        'IdTipoDocumento': fields.Integer,
+        'nombre': fields.String,
+        'metadatos': fields.Nested(metadata_doc_crud_model),
+        'firmantes': fields.List(fields.Nested(firmantes_model)),
+        'representantes': fields.List(fields.Nested(representantes_model)),
+        'descripcion': fields.String,
+        'etapa_firma': fields.Integer,
+        'file': fields.String
+    })]
+
     firma_model = [api.model('firma_request',{
         'firma': fields.String,
         'fileUp': fields.String,
