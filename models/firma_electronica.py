@@ -242,7 +242,8 @@ class ElectronicSign:
         t.setTextOrigin(x, y)
         t.textLine("Fecha y hora:")
         t.setFont('Vera', 8)
-        fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
+        #fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
+        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
         t.setTextOrigin(x+140, y)
         t.textLine(fechaHoraActual)
 
@@ -442,7 +443,8 @@ class ElectronicSign:
         t.setTextOrigin(x, y)
         t.textLine("Fecha y hora:")
         t.setFont('Vera', 8)
-        fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
+        #fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
+        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
         t.setTextOrigin(x+140, y)
         t.textLine(fechaHoraActual)
 
