@@ -126,10 +126,13 @@ class ElectronicSign:
         """
 
         link_verificacion = ""
+        link_verificacion_externa = ""
         if os.environ['ENV'] == "dev":
-            link_verificacion = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+            link_verificacion = "Verificación interna: https://pruebasverificacion.portaloas.udistrital.edu.co"
+            link_verificacion_externa = "Verificación para externos: https://pruebasverificacionexterna.portaloas.udistrital.edu.co"
         else:
-            link_verificacion = "https://verificacion.portaloas.udistrital.edu.co"
+            link_verificacion = "Verificación interna: https://verificacion.portaloas.udistrital.edu.co"
+            link_verificacion_externa = "Verificación para externos: https://verificacionexterna.portaloas.udistrital.edu.co"
 
 
         x = 80
@@ -278,9 +281,11 @@ class ElectronicSign:
             t.textLine(" ")
             y= y - 20
             link_ver = link_verificacion
+            link_ver_externo = link_verificacion_externa
             t.setFont("Vera", 8)
             t.setTextOrigin(x, y)
             t.textLine(link_ver)
+            t.textLine(link_ver_externo)
             #Fin enlace
 
         c.drawText(t)
@@ -310,10 +315,13 @@ class ElectronicSign:
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
         link_verificacion = ""
+        link_verificacion_externa = ""
         if os.environ['ENV'] == "dev":
-            link_verificacion = "https://pruebasverificacion.portaloas.udistrital.edu.co"
+            link_verificacion = "Verificación interna: https://pruebasverificacion.portaloas.udistrital.edu.co"
+            link_verificacion_externa = "Verificación para externos: https://pruebasverificacionexterna.portaloas.udistrital.edu.co"
         else:
-            link_verificacion = "https://verificacion.portaloas.udistrital.edu.co"
+            link_verificacion = "Verificación interna: https://verificacion.portaloas.udistrital.edu.co"
+            link_verificacion_externa = "Verificación para externos: https://verificacionexterna.portaloas.udistrital.edu.co"
 
         x = 80
         y = yPosition
@@ -458,9 +466,11 @@ class ElectronicSign:
         t.textLine(" ")
         y= y - 20
         link_ver = link_verificacion
+        link_ver_externo = link_verificacion_externa
         t.setFont("Vera", 8)
         t.setTextOrigin(x, y)
         t.textLine(link_ver)
+        t.textLine(link_ver_externo)
         #Fin enlace
 
         c.drawText(t)
