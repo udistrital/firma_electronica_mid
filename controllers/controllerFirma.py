@@ -190,12 +190,33 @@ def postVerify(data):
         json : info documento si existe firma electrónica
     """
     response_array = []
+    logger.info("INICIA EL VERIFY")
     try:
+        logger.info("data :")
+        logger.info(data)
         for i in range(len(data)):
+            logger.info("data[i][firma] :")
+            logger.info(data[i]["firma"])
+
+            logger.info("data :")
+            logger.info(data)
+
+            logger.info("data :")
+            logger.info(data)
+
+            logger.info("data :")
+            logger.info(data)
+
             if str(data[i]["firma"]) == "":
+                logger.info("data[i][firma] :")
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))
+            logger.info(resFirma)
+            logger.info(f"resFirma envia: {requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))}")
+            logger.info(f"Respuesta de DOCUMENTOS_CRUD_URL: {resFirma.status_code}")
+            logger.info(f"Contenido de resFirma: {resFirma}")
+            logger.info(f"Contenido de resFirma: {json.loads(resFirma.content.decode('utf8').replace("'", '"'))}")
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
@@ -236,7 +257,8 @@ def postVerify(data):
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
         return Response(json.dumps({'Status':'200', 'res':response_array}), status=200, mimetype='application/json')
     except Exception as e:
-            logging.error("type error: " + str(e))
+            logger.info(f"ERROR: {e}")
+            #logging.error("type error: " + str(e))
             if str(e) == "'firma'":
                 error_dict = {'Status':'the field firma is required','Code':'400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
