@@ -6,8 +6,6 @@ from flask import Flask,jsonify,request, Response
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
 
-logger = logging.getLogger(__name__)
-
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -25,7 +23,6 @@ def postFirmaElectronica(data):
         json : info documento
     """
     response_array=[]
-    logger.info("Inicio de postFirmaElectronica")
     try:
         for i in range(len(data)):
             if len(str(data[i]['file'])) < 1000:
@@ -36,8 +33,6 @@ def postFirmaElectronica(data):
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             IdDocumento = data[i]['IdTipoDocumento']
             res = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'tipo_documento/'+str(IdDocumento))
-            logger.info("res :")
-            logger.info(res)
 
             if res.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(data[i]['IdTipoDocumento'])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
@@ -65,12 +60,8 @@ def postFirmaElectronica(data):
                 'TipoDocumento':  res_json,
                 'Activo': True
             }
-            logger.info("DicPostDoc :")
-            logger.info(DicPostDoc)
             resPost = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'documento', json=DicPostDoc).content
             responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
-            logger.info("responsePostDoc :")
-            logger.info(responsePostDoc)
             electronicSign = ElectronicSign()
             objFirmaElectronica = {
                 "Activo": True,
@@ -85,24 +76,18 @@ def postFirmaElectronica(data):
 
             reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
             responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
-            logger.info("responsePostFirma :")
-            logger.info(responsePostFirma)
             datos = {
                 "firma": responsePostFirma["Id"],
                 "firmantes": data[i]["firmantes"],
                 "representantes": data[i]["representantes"],
                 "tipo_documento": res_json["Nombre"],
             }
-            logger.info("datos :")
-            logger.info(datos)
             electronicSign.estamparFirmaElectronica(datos)
             jsonStringFirmantes = {
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
             firma_electronica = firmar(str(electronicSign.docFirmadoBase64()))
-            logger.info("firma_electronica :")
-            logger.info(firma_electronica)
             #Inicio update firma
             objFirmaElectronica = {
                 "Activo": True,
@@ -112,11 +97,7 @@ def postFirmaElectronica(data):
                 "Llaves": json.dumps(firma_electronica["llaves"]),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
-            logger.info("objFirmaElectronica :")
-            logger.info(objFirmaElectronica)
             reqFirma = requests.put(str(os.environ['DOCUMENTOS_CRUD_URL'])+ 'firma_electronica/' + responsePostFirma["Id"], json=objFirmaElectronica)
-            logger.info("reqFirma :")
-            logger.info(reqFirma)
             if reqFirma.status_code != 200:
                 return Response(json.dumps({'Status':'404','Error': str("the id "+str(responsePostFirma["Id"])+" does not exist in documents_crud")}), status=404, mimetype='application/json')
             #fin update firma
@@ -134,17 +115,11 @@ def postFirmaElectronica(data):
                 "file": docFirmadoBase64,
                 "idDocumento": responsePostDoc["Id"]
             }]
-            logger.info("putUpdateJson :")
-            logger.info(putUpdateJson)
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
             responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
-            logger.info("responsePutUpdate :")
-            logger.info(responsePutUpdate)
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         responsePutUpdate['file'] = docFirmadoBase64
-        logger.info("responsePutUpdate['file'] :")
-        logger.info(responsePutUpdate['file'])
         return Response(json.dumps(responsePutUpdate), status=200, mimetype='application/json')
     except Exception as e:
         logging.error("type error: " + str(e))
@@ -190,35 +165,12 @@ def postVerify(data):
         json : info documento si existe firma electrónica
     """
     response_array = []
-    logger.info("INICIA EL VERIFY")
     try:
-        logger.info("data :")
-        logger.info(data)
         for i in range(len(data)):
-            logger.info("data[i][firma] :")
-            logger.info(data[i]["firma"])
-
-            logger.info("data :")
-            logger.info(data)
-
-            logger.info("data :")
-            logger.info(data)
-
-            logger.info("data :")
-            logger.info(data)
-
             if str(data[i]["firma"]) == "":
-                logger.info("data[i][firma] :")
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             resFirma = requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"]))
-            logger.info(resFirma)
-            logger.info("resFirma envia: ")
-            logger.info(requests.get(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica/'+str(data[i]["firma"])))
-            logger.info("Respuesta de DOCUMENTOS_CRUD_URL: ")
-            logger.info(resFirma.status_code)
-            logger.info("Contenido de resFirma: ")
-            logger.info(json.loads(resFirma.content.decode('utf8').replace("'", '"')))
             if resFirma.status_code != 200:
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
@@ -259,9 +211,6 @@ def postVerify(data):
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
         return Response(json.dumps({'Status':'200', 'res':response_array}), status=200, mimetype='application/json')
     except Exception as e:
-            logger.info("ERROR en postverify: ")
-            logger.info(e)
-            #logging.error("type error: " + str(e))
             if str(e) == "'firma'":
                 error_dict = {'Status':'the field firma is required','Code':'400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
