@@ -124,16 +124,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-
-        link_verificacion = ""
-        link_verificacion_externa = ""
-        if os.environ['ENV'] == "dev":
-            link_verificacion = "Verificación interna: https://pruebasverificacion.portaloas.udistrital.edu.co"
-            link_verificacion_externa = "Verificación para externos: https://pruebasverificacionexterna.portaloas.udistrital.edu.co"
-        else:
-            link_verificacion = "Verificación interna: https://verificacion.portaloas.udistrital.edu.co"
-            link_verificacion_externa = "Verificación para externos: https://verificacionexterna.portaloas.udistrital.edu.co"
-
+        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
+        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
 
         x = 80
         y = yPosition
@@ -314,14 +306,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = ""
-        link_verificacion_externa = ""
-        if os.environ['ENV'] == "dev":
-            link_verificacion = "Verificación interna: https://pruebasverificacion.portaloas.udistrital.edu.co"
-            link_verificacion_externa = "Verificación para externos: https://pruebasverificacionexterna.portaloas.udistrital.edu.co"
-        else:
-            link_verificacion = "Verificación interna: https://verificacion.portaloas.udistrital.edu.co"
-            link_verificacion_externa = "Verificación para externos: https://verificacionexterna.portaloas.udistrital.edu.co"
+        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
+        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
 
         x = 80
         y = yPosition
