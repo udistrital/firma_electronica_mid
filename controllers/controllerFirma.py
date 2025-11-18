@@ -71,8 +71,6 @@ def postFirmaElectronica(data):
                 "Llaves": json.dumps({}),
                 "DocumentoId": {"Id": responsePostDoc["Id"]},
             }
-            logger.info("objFirmaElectronica :")
-            logger.info(objFirmaElectronica)
 
             reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
             responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
