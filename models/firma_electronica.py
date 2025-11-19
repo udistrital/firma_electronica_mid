@@ -124,13 +124,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-
-        link_verificacion = ""
-        if os.environ['ENV'] == "dev":
-            link_verificacion = "https://pruebasverificacion.portaloas.udistrital.edu.co"
-        else:
-            link_verificacion = "https://verificacion.portaloas.udistrital.edu.co"
-
+        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
+        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
 
         x = 80
         y = yPosition
@@ -278,9 +273,11 @@ class ElectronicSign:
             t.textLine(" ")
             y= y - 20
             link_ver = link_verificacion
+            link_ver_externo = link_verificacion_externa
             t.setFont("Vera", 8)
             t.setTextOrigin(x, y)
             t.textLine(link_ver)
+            t.textLine(link_ver_externo)
             #Fin enlace
 
         c.drawText(t)
@@ -309,11 +306,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = ""
-        if os.environ['ENV'] == "dev":
-            link_verificacion = "https://pruebasverificacion.portaloas.udistrital.edu.co"
-        else:
-            link_verificacion = "https://verificacion.portaloas.udistrital.edu.co"
+        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
+        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
 
         x = 80
         y = yPosition
@@ -458,9 +452,11 @@ class ElectronicSign:
         t.textLine(" ")
         y= y - 20
         link_ver = link_verificacion
+        link_ver_externo = link_verificacion_externa
         t.setFont("Vera", 8)
         t.setTextOrigin(x, y)
         t.textLine(link_ver)
+        t.textLine(link_ver_externo)
         #Fin enlace
 
         c.drawText(t)

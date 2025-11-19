@@ -74,7 +74,6 @@ def postFirmaElectronica(data):
 
             reqPostFirma = requests.post(str(os.environ['DOCUMENTOS_CRUD_URL'])+'firma_electronica', json=objFirmaElectronica).content
             responsePostFirma = json.loads(reqPostFirma.decode('utf8').replace("'", '"'))
-
             datos = {
                 "firma": responsePostFirma["Id"],
                 "firmantes": data[i]["firmantes"],
@@ -210,7 +209,6 @@ def postVerify(data):
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
         return Response(json.dumps({'Status':'200', 'res':response_array}), status=200, mimetype='application/json')
     except Exception as e:
-            logging.error("type error: " + str(e))
             if str(e) == "'firma'":
                 error_dict = {'Status':'the field firma is required','Code':'400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
