@@ -1,35 +1,34 @@
-FROM python:3.8
+FROM python:3.11-slim
 
-RUN pip install awscli
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
-COPY entrypoint.sh entrypoint.sh
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    poppler-utils \
+    gcc \
+    libffi-dev \
+    libssl-dev \
+    make \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN chmod +x entrypoint.sh
+WORKDIR /
 
-RUN mkdir documents
+COPY pyproject.toml .
 
-RUN touch ./documents/document.pdf
+RUN python -c "import tomllib, subprocess; \
+deps = tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']; \
+subprocess.check_call(['pip', 'install', '--no-cache-dir', *deps])"
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN mkdir -p /documents
+
+COPY conf/ /conf/
+COPY controllers/ /controllers/
+COPY models/ /models/
+COPY routers/ /routers/
+COPY api.py /api.py
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-ADD requirements.txt .
-
-RUN pip install -r requirements.txt
-
-RUN apt-get update
-
-RUN apt-get install poppler-utils -y
-
-COPY conf/** /conf/
-
-COPY controllers/** /controllers/
-
-COPY models/** /models/
-
-COPY routers/** /routers/
-
-COPY swagger/** /swagger/
-
-ADD api.py .
-
-#CMD [ "python", "./api.py" ]

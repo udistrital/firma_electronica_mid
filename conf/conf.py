@@ -1,13 +1,15 @@
 import os
 import sys
+import re
 
-# Environmen variables list
 variables = ['API_PORT', 'DOCUMENTOS_CRUD_URL', 'GESTOR_DOCUMENTAL_URL', 'ENV']
 
-if os.environ['ENV'] == "dev":
+env = os.getenv("ENV", "dev").lower()
+
+if env == "dev":
     origins = ["*"]
 else:
-    origins = ["*"]
+    origins = [re.compile(r".*\.udistrital\.edu\.co$")]
 
 api_cors_config = {
     "origins": origins,
@@ -16,7 +18,6 @@ api_cors_config = {
 }
 
 def checkEnv():
-# Environment variables checking
     for variable in variables:
         if variable not in os.environ:
             print(str(variable) + " environment variable not found")

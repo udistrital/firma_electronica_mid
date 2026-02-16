@@ -1,3 +1,6 @@
+kind: pipeline
+name: oati_golang_api_ci
+
 workspace:
   base: /go
   path: src/github.com/udistrital/${DRONE_REPO##udistrital/}
@@ -7,22 +10,7 @@ workspace:
       - release/*
       - master
 
-kind: pipeline
-name: oas_api_ci
-
 steps:
-  - name: check_readme
-    image: jjvargass/qa_develoment:latest
-    commands:
-    - python /app/check_readme.py
-    when:
-      branch:
-      - develop
-      - feature/*
-      - release/*
-      event:
-      - push
-
   - name: check_branch
     image: jjvargass/qa_develoment:latest
     commands:
@@ -48,87 +36,96 @@ steps:
       - push
 
   - name: run_sonar_scanner
-    image: aosapps/drone-sonar-plugin
-    settings:
-      sonar_host:
+    image: sonarsource/sonar-scanner-cli:latest
+    environment:
+      SONAR_HOST_URL:
         from_secret: SONAR_HOST
-      sonar_token:
+      SONAR_TOKEN:
         from_secret: SONAR_TOKEN
+      SONAR_SCANNER_OPTS: "-Dsonar.working.directory=/tmp/.scannerwork"
+    commands:
+      - sonar-scanner
+    when:
+      branch:
+        - feature/*
+        - develop
+        - release/*
+        - hotfix/*
+        - master
+      event:
+      - push
 
   - name: publish_to_ecr_release
     image: plugins/ecr
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
-      secret_key:
-        from_secret: AWS_SECRET_ACCESS_KEY
+      create_repository: true
       region:
         from_secret: AWS_REGION
-      repo: ${DRONE_REPO##udistrital/}
+      repo: ${DRONE_REPO_NAME}
+      secret_key:
+        from_secret: AWS_SECRET_ACCESS_KEY
       tags:
         - ${DRONE_COMMIT:0:7}
         - release
     when:
       branch:
-      - release/*
+        - release/*
       event:
-      - push
+        - push
 
-  - name: publish_to_ecr_master
+  - name: publish_to_ecr_prod
     image: plugins/ecr
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
-      secret_key:
-        from_secret: AWS_SECRET_ACCESS_KEY
+      create_repository: true
       region:
         from_secret: AWS_REGION
-      repo: ${DRONE_REPO##udistrital/}
+      repo: ${DRONE_REPO_NAME}
+      secret_key:
+        from_secret: AWS_SECRET_ACCESS_KEY
       tags:
         - ${DRONE_COMMIT:0:7}
         - latest
     when:
       branch:
-      - master
+        - master
       event:
-      - push
+        - push
 
-  - name: update_aws_ecs
-    image: golang:1.18
+  - name: update_ecs_service
+    image: amazon/aws-cli:latest
     environment:
       AWS_ACCESS_KEY_ID:
         from_secret: AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_SECRET_ACCESS_KEY
-      AWS_CONTAINER:
-        from_secret: AWS_CONTAINER
+      AWS_DEFAULT_REGION:
+        from_secret: AWS_REGION
     commands:
     - case ${DRONE_BRANCH} in
-        release/*)
-          AMBIENTE=test
-          CLUSTER=test
-          MYCONTAINER=$${AWS_CONTAINER}/${DRONE_REPO##udistrital/}:release
-          ;;
-        master)
-          AMBIENTE=prod
-          CLUSTER=oas
-          MYCONTAINER=$${AWS_CONTAINER}/${DRONE_REPO##udistrital/}:latest
-          ;;
+      master)
+      SUFFIX=prod
+      CLUSTER=oas
+        ;;
+      *)
+      SUFFIX=test
+      CLUSTER=test
+        ;;
       esac
-    - AWS_REGION=us-east-1
-    - SERVICE=${DRONE_REPO##udistrital/}_$AMBIENTE
-    - apt-get update
-    - apt-get install unzip
-    - wget https://github.com/Autodesk/go-awsecs/releases/download/v1.1/update-aws-ecs-service-linux-amd64.zip
-    - unzip update-aws-ecs-service-linux-amd64.zip -d /go/bin
-    - AWS_ACCESS_KEY_ID=$${AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=$${AWS_SECRET_ACCESS_KEY} AWS_REGION=$AWS_REGION
-      $GOPATH/bin/update-aws-ecs-service -cluster $CLUSTER -service $SERVICE -container-image $MYCONTAINER
+    - aws ecs update-service
+      --cluster $${CLUSTER}
+      --service $${DRONE_REPO_NAME}_$${SUFFIX}
+      --force-new-deployment
+      --query "service.deployments[0].id"
     when:
       branch:
-      - release/*
-      - master
+        - release/*
+        - master
       event:
-      - push
+        - push
 
   - name: notify_telegram
     image: appleboy/drone-telegram
