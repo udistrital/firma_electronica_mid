@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, request
 from flask_restx import Api, Resource
 from flask_cors import CORS, cross_origin
@@ -18,7 +19,7 @@ docDocumentacion = Api(
     version="1.0",
     title="firma_electronica_mid",
     description="API para la firma electrónica de documentos",
-    doc="/swagger" if ENV == "dev" else None
+    doc="/swagger" if os.environ['ENV'] == "dev" else None
 )
 
 ns_v1 = docDocumentacion.namespace(
