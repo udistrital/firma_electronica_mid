@@ -33,8 +33,6 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
-        #key = os.environ['ENCRYPTION_KEY']
-        #self.fernet = Fernet(key)
 
     def lastPageItems(self, pdfIn):
         """
@@ -107,7 +105,7 @@ class ElectronicSign:
         return self.fernet.encrypt(firma.encode())
 
     #--------- INICIO NUEVA ESTAMPA -------
-    def signature_alter(self, pdfIn, yPosition, datos, etapa):
+    def signature_alter(self, pdfIn, yPosition, datos, etapa, archivoFirma):
         """
             Crea el estampado dependiendo de la etapa en la que se esté firmando.
             Parameters
@@ -165,7 +163,7 @@ class ElectronicSign:
             y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
 
 
-        c = canvas.Canvas('documents/signature.pdf')
+        c = canvas.Canvas(archivoFirma)
         # Create the signPdf from an image
         # c = canvas.Canvas('signPdf.pdf')
 
@@ -289,7 +287,7 @@ class ElectronicSign:
 
     #--------- FIN NUEVA ESTAMPA --------
 
-    def signature(self, pdfIn, yPosition, datos):
+    def signature(self, pdfIn, yPosition, datos, archivoFirma):
         """
             Crea el estampado de la firma electronica
             Parameters
@@ -348,7 +346,7 @@ class ElectronicSign:
             y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
 
 
-        c = canvas.Canvas('documents/signature.pdf')
+        c = canvas.Canvas(archivoFirma)
         # Create the signPdf from an image
         # c = canvas.Canvas('signPdf.pdf')
 
@@ -466,7 +464,7 @@ class ElectronicSign:
         espacio = yPosition - self.YFOOTER > signPageSize
         return espacio
 
-    def estamparUltimaPagina(self, pdfIn):
+    def estamparUltimaPagina(self, pdfIn, archivoFirma, archivoFirmado):
 
         """
             Estampa la firma en la ultima pagina del cocumento ya existente
@@ -476,7 +474,7 @@ class ElectronicSign:
                 pdf abierto en buffer como lectura
         """
 
-        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        signPdf = PdfReader(open(archivoFirma, "rb"))
         documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
@@ -492,10 +490,10 @@ class ElectronicSign:
         input_page = documentPdf.pages[page_count-1]
         input_page.merge_page(signPdf.pages[0])
         output_file.add_page(input_page)
-        with open("documents/documentSigned.pdf", "wb") as outputStream:
+        with open(archivoFirmado, "wb") as outputStream:
             output_file.write(outputStream)
 
-    def estamparNuevaPagina(self, pdfIn):
+    def estamparNuevaPagina(self, pdfIn, archivoFirma, archivoFirmado):
         """
             Crea una nueva pagina y la estampa para ser unida con el pdf
 
@@ -504,7 +502,7 @@ class ElectronicSign:
             pdfIn : _io.BufferedReader
                 pdf abierto en buffer como lectura
         """
-        signPdf = PdfReader(open("documents/signature.pdf", "rb"))
+        signPdf = PdfReader(open(archivoFirma, "rb"))
         documentPdf = PdfReader(pdfIn)
 
         # Get our files ready
@@ -520,11 +518,11 @@ class ElectronicSign:
         output_file.add_blank_page()
         output_file.pages[len(output_file.pages)-1].merge_page(signPdf.pages[0])
 
-        with open("documents/documentSigned.pdf", "wb") as outputStream:
+        with open(archivoFirmado, "wb") as outputStream:
             output_file.write(outputStream)
 
 
-    def estamparFirmaElectronica(self, datos):
+    def estamparFirmaElectronica(self, datos, archivoAFirmar, archivoFirma, archivoFirmado):
         """
             Metodo principal para el proceso de estampado
 
@@ -538,20 +536,24 @@ class ElectronicSign:
             firmaEncriptada : String
                 firma con id encriptadas en un solo texto
         """
-        pdfIn = open("documents/documentToSign.pdf","rb")
-        yPosition = self.signPosition(pdfIn) - 10
-        if datos.get('tipo_firma'):
-            if datos['tipo_firma'] != 1:
-                yPosition = yPosition + 15
-            etapa = datos['tipo_firma']
-            suficienteEspacio = self.signature_alter(pdfIn, yPosition, datos, etapa)
-        else:
-            suficienteEspacio = self.signature(pdfIn, yPosition, datos)
-
-        if suficienteEspacio:
-            self.estamparUltimaPagina(pdfIn)
-        else:
-            self.estamparNuevaPagina(pdfIn)
+        # Primero calcular posición
+        with open(archivoAFirmar, "rb") as pdfIn:
+            yPosition = self.signPosition(pdfIn) - 10
+        # Generar firma visual
+        with open(archivoAFirmar, "rb") as pdfIn:
+            if datos.get('tipo_firma'):
+                if datos['tipo_firma'] != 1:
+                    yPosition = yPosition + 15
+                etapa = datos['tipo_firma']
+                suficienteEspacio = self.signature_alter(pdfIn, yPosition, datos, etapa, archivoFirma)
+            else:
+                suficienteEspacio = self.signature(pdfIn, yPosition, datos, archivoFirma)
+        # Estampar en documento
+        with open(archivoAFirmar, "rb") as pdfIn:
+            if suficienteEspacio:
+                self.estamparUltimaPagina(pdfIn, archivoFirma, archivoFirmado)
+            else:
+                self.estamparNuevaPagina(pdfIn, archivoFirma, archivoFirmado)
         return
 
     def firmaCompleta(self, firma, id):
@@ -574,11 +576,11 @@ class ElectronicSign:
         firmaID = str(id) + "/////" + firma
         return self.hashCode(firmaID).decode()
     
-    def docFirmadoBase64(self):
+    def docFirmadoBase64(self, archivoFirmado):
         '''
             Convierte el documento firmado a base 64 para que pueda ser recibido en gestor documental por putUpdate
         '''
-        with open("documents/documentSigned.pdf","rb") as pdf_file:
+        with open(archivoFirmado,"rb") as pdf_file:
             # Leer el contenido del archivo
             pdf_bytes = pdf_file.read()
             # Convertir los bytes a base64
