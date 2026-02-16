@@ -1,42 +1,38 @@
-from flask import  jsonify, Blueprint, request
-from flask_restx import Resource, Api
+from flask import Blueprint, request
+from flask_restx import Api, Resource
+from flask_cors import CORS, cross_origin
 from controllers import healthCheck, controllerFirma
 from models.model_params import define_parameters
 from conf.conf import api_cors_config
-from flask_cors import cross_origin, CORS
 
-#Creo función para capturar la app de server y poder hacer routing
+api_bp = Blueprint("api_bp", __name__, url_prefix="/api")
+CORS(api_bp)
 
-def addRutas(app_main):
-    app_main.register_blueprint(healthCheckController)
-    app_main.register_blueprint(docControl, url_prefix='/v1')
+@api_bp.route("", methods=["GET"])
+@api_bp.route("/", methods=["GET"])
+def api_health():
+    return healthCheck.health_check()
 
-healthCheckController = Blueprint('healthCheckController', __name__, url_prefix='/')
-CORS(healthCheckController)
+docDocumentacion = Api(
+    api_bp,
+    version="1.0",
+    title="firma_electronica_mid",
+    description="API para la firma electrónica de documentos",
+    doc="/swagger" if ENV == "dev" else None
+)
 
-@healthCheckController.route('/')
-def _():
-    return healthCheck.healthCheck(docDocumentacion)
+ns_v1 = docDocumentacion.namespace(
+    "v1",
+    path="/v1",
+    description="Servicios de firma electrónica"
+)
 
-#Uso Blueprint para poder utilizar la función route
-docControl=Blueprint('docControl', __name__)
-CORS(docControl)
-#----------INICIO SWAGGER --------------
-docDocumentacion = Api(docControl, version='1.0',title="firma_electronica", description='API para la firma electrónica de documentos',doc='/swagger')
-docFirmacontroller = docDocumentacion.namespace("firma_electronica",path="/", description="methods for electronic signature process")
+model_params = define_parameters(docDocumentacion)
 
-model_params=define_parameters(docDocumentacion)
-#----------FIN SWAGGER ----------------
+@ns_v1.route("/firma_electronica")
+class FirmaElectronicaResource(Resource):
 
-#Firma electrónica
-@docFirmacontroller.route('/firma_electronica')
-class docFirmaElectronica(Resource):
-    @docDocumentacion.doc(responses={
-        200: 'Success',
-        500: 'Nuxeo Error',
-        400: 'Bad request'
-    }, body=model_params['upload_model'])
-    @docFirmacontroller.expect(model_params['request_parser'])
+    @ns_v1.expect(model_params["request_parser"])
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -52,22 +48,17 @@ class docFirmaElectronica(Resource):
             Response
                 Respuesta con cuerpo, status y en formato json
         """
-        body=request.get_json()
+        body = request.get_json()
         return controllerFirma.postFirmaElectronica(body)
 
-#Verificación Firma electrónica
-@docFirmacontroller.route('/verify')
-class docPostVerify(Resource):
-    @docDocumentacion.doc(responses={
-        200: 'Success',
-        500: 'Nuxeo error',
-        400: 'Bad request'
-    }, body=model_params['firma_model'])
-    @docFirmacontroller.expect(model_params['request_parser'])
+@ns_v1.route("/verify")
+class VerifyFirmaResource(Resource):
+
+    @ns_v1.expect(model_params["request_parser"])
     @cross_origin(**api_cors_config)
     def post(self):
         """
-            permite verificar la firma electronica de un documento
+            Permite verificar la firma electronica de un documento.
 
             Parameters
             ----------
@@ -81,19 +72,11 @@ class docPostVerify(Resource):
         """
         body = request.get_json()
         return controllerFirma.postVerify(body)
-    
-#-----Múltiples firmantes -------
 
-#Firma inicial
+@ns_v1.route("/firma_multiple")
+class FirmaMultipleResource(Resource):
 
-@docFirmacontroller.route('/firma_multiple')
-class docFirmaMultipleInicial(Resource):
-    @docDocumentacion.doc(responses={
-        200: 'Success',
-        500: 'Nuxeo error',
-        400: 'Bad request'
-    }, body=model_params['firma_multiple_model'])
-    @docFirmacontroller.expect(model_params['request_parser'])
+    @ns_v1.expect(model_params["request_parser"])
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -109,6 +92,9 @@ class docFirmaMultipleInicial(Resource):
             Response
                 Respuesta con cuerpo, status y en formato json
         """
-        body=request.get_json()
+        body = request.get_json()
         return controllerFirma.FirmaMultiple(body)
-    
+
+def addRutas(app):
+    app.register_blueprint(api_bp)
+

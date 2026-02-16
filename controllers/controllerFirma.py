@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from flask import Flask,jsonify,request, Response
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
+import uuid
 
 def postFirmaElectronica(data):
     """
@@ -23,8 +24,21 @@ def postFirmaElectronica(data):
         json : info documento
     """
     response_array=[]
+    archivos_temporales = []
+
     try:
         for i in range(len(data)):
+
+            nombreGenerado = uuid.uuid4()
+            archivoAFirmar = f"./documents/{nombreGenerado}ToSign.pdf"
+            archivoFirma = f"./documents/{nombreGenerado}signature.pdf"
+            archivoFirmado = f"./documents/{nombreGenerado}Signed.pdf"
+            archivos_temporales.extend([
+                archivoAFirmar,
+                archivoFirma,
+                archivoFirmado
+            ])
+
             if len(str(data[i]['file'])) < 1000:
                 error_dict = {
                     'Status':'invalid pdf file',
@@ -46,7 +60,7 @@ def postFirmaElectronica(data):
             #Fin verificar que el base 64 sea un pdf
             res_json = json.loads(res.content.decode('utf8').replace("'", '"'))
             blob = base64.b64decode(data[i]['file'])
-            with open(os.path.expanduser('./documents/documentToSign.pdf'), 'wb') as fout:
+            with open(os.path.expanduser(archivoAFirmar), 'wb') as fout:
                 fout.write(blob)
             jsonFirmantes = {
                     "firmantes": data[i]["firmantes"],
@@ -80,12 +94,12 @@ def postFirmaElectronica(data):
                 "representantes": data[i]["representantes"],
                 "tipo_documento": res_json["Nombre"],
             }
-            electronicSign.estamparFirmaElectronica(datos)
+            electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
             jsonStringFirmantes = {
                 "firmantes": json.dumps(data[i]["firmantes"]),
                 "representantes": json.dumps(data[i]["representantes"])
             }
-            firma_electronica = firmar(str(electronicSign.docFirmadoBase64()))
+            firma_electronica = firmar(str(electronicSign.docFirmadoBase64(archivoFirmado)))
             #Inicio update firma
             objFirmaElectronica = {
                 "Activo": True,
@@ -104,7 +118,7 @@ def postFirmaElectronica(data):
             firma_electronica.pop("llaves")
             #Fin modificación
             all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
-            docFirmadoBase64 = str(electronicSign.docFirmadoBase64())
+            docFirmadoBase64 = str(electronicSign.docFirmadoBase64(archivoFirmado))
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
                 "nombre": data[i]['nombre'],
@@ -147,6 +161,14 @@ def postFirmaElectronica(data):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
             return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
         return Response(json.dumps({'Status':'500','Error':str(e)}), status=500, mimetype='application/json')
+    finally:
+        for f in archivos_temporales:
+            try:
+                if os.path.exists(f):
+                    os.remove(f)
+            except Exception:
+                pass
+
 def postVerify(data):
     """
         Verificar firma electrónica de documentos (pdf) cargados y firmados digitalmente,
@@ -216,6 +238,7 @@ def postVerify(data):
                 DicStatus = {'Status':'invalid request body', 'Code':'400'}
                 return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
             return Response(json.dumps({'Status':'500','Error':str(e)}), status=500, mimetype='application/json')
+
 def FirmaMultiple(data):
     """
         Estampa información de firmantes y la fecha en la que se estampa
@@ -232,8 +255,21 @@ def FirmaMultiple(data):
         json : info documento
     """
     response_array=[]
+    archivos_temporales = []
+
     try:
         for i in range(len(data)):
+
+            nombreGenerado = uuid.uuid4()
+            archivoAFirmar = f"./documents/{nombreGenerado}ToSign.pdf"
+            archivoFirma = f"./documents/{nombreGenerado}signature.pdf"
+            archivoFirmado = f"./documents/{nombreGenerado}Signed.pdf"
+            archivos_temporales.extend([
+                archivoAFirmar,
+                archivoFirma,
+                archivoFirmado
+            ])
+
             if len(str(data[i]['file'])) < 1000:
                 error_dict = {
                     'Status':'invalid pdf file',
@@ -255,7 +291,7 @@ def FirmaMultiple(data):
             #Fin verificar que el base 64 sea un pdf
             res_json = json.loads(res.content.decode('utf8').replace("'", '"'))
             blob = base64.b64decode(data[i]['file'])
-            with open(os.path.expanduser('./documents/documentToSign.pdf'), 'wb') as fout:
+            with open(os.path.expanduser(archivoAFirmar), 'wb') as fout:
                 fout.write(blob)
             jsonFirmantes = {
                     "firmantes": data[i]["firmantes"],
@@ -298,7 +334,7 @@ def FirmaMultiple(data):
                     "tipo_documento": res_json["Nombre"],
                     "tipo_firma": data[i]["etapa_firma"]
                 }
-            electronicSign.estamparFirmaElectronica(datos)
+            electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
 
             # ------- LÓGICA CONDICIONADA ----
 
@@ -308,7 +344,7 @@ def FirmaMultiple(data):
                     "firmantes": metaDatos['firmantes'],
                     "representantes": metaDatos["representantes"]
                 }
-                firma_electronica = firmar(str(electronicSign.docFirmadoBase64()))
+                firma_electronica = firmar(str(electronicSign.docFirmadoBase64(archivoFirmado)))
                 #Inicio update firma
                 objFirmaElectronica = {
                     "Activo": True,
@@ -338,7 +374,7 @@ def FirmaMultiple(data):
                 "nombre": data[i]['nombre'],
                 "metadatos": all_metadata,
                 "descripcion": data[i]['descripcion'],
-                "file": str(electronicSign.docFirmadoBase64()),
+                "file": str(electronicSign.docFirmadoBase64(archivoFirmado)),
                 "idDocumento": responsePostDoc["Id"]
             }]
             reqPutFirma = requests.put(str(os.environ['GESTOR_DOCUMENTAL_URL'])+'document/putUpdate', json=putUpdateJson).content
@@ -375,3 +411,11 @@ def FirmaMultiple(data):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
             return Response(json.dumps(DicStatus), status=400, mimetype='application/json')
         return Response(json.dumps({'Status':'500','Error':str(e)}), status=500, mimetype='application/json')
+    finally:
+        for f in archivos_temporales:
+            try:
+                if os.path.exists(f):
+                    os.remove(f)
+            except Exception:
+                pass
+
