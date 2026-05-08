@@ -11,9 +11,18 @@ API MID para la implementación de firma electronica.
 ### Variables de Entorno
 ```shell
 # parametros de api
-API_PORT=[Puerto de exposición del API]
-DOCUMENTOS_CRUD_URL=[URL API documentos_crud]
-GESTOR_DOCUMENTAL=[URL API gestor_documental_mid]
+FIRMA_ELECTRONICA_MID_API_PORT=[Puerto de exposición del API]
+FIRMA_ELECTRONICA_MID_DOCUMENTOS_CRUD_URL=[URL API documentos_crud]
+FIRMA_ELECTRONICA_MID_GESTOR_DOCUMENTAL_URL=[URL API gestor_documental_mid]
+FIRMA_ELECTRONICA_MID_VERIFICACION=[URL de verificación interna]
+FIRMA_ELECTRONICA_MID_VERIFICACION_EXTERNA=[URL de verificación externa y destino del QR]
+FIRMA_ELECTRONICA_MID_QR_SECRET_PROVIDER=[Proveedor de secretos, requerido; usar aws en prod]
+FIRMA_ELECTRONICA_MID_QR_SECRET_NAME=[Nombre del secreto QR en AWS Secrets Manager, requerido si no se usa ARN]
+FIRMA_ELECTRONICA_MID_QR_SECRET_ARN=[Opcional, ARN completo del secreto]
+FIRMA_ELECTRONICA_MID_QR_SECRET_ACTIVE_VERSION=[Solo local/dev con provider=env]
+FIRMA_ELECTRONICA_MID_QR_SECRET_VERSIONS_JSON=[Solo local/dev con provider=env: mapa version->secreto]
+FIRMA_ELECTRONICA_MID_QR_SIGNING_SECRET=[Fallback legado/local]
+FIRMA_ELECTRONICA_MID_RUN_MODE=[Modo de ejecución]
 ```
 
 
@@ -31,7 +40,14 @@ cd firma_electronica
 git pull origin develop && git checkout develop
 
 # 4. alimentar todas las variables de entorno que utiliza el proyecto.
-export API_PORT=8080 DOCUMENTOS_CRUD_URL=http://xxxxxxxxx/v1/ GESTOR_DOCUMENTAL_URL=http://xxxxxxxxx/v1/
+export FIRMA_ELECTRONICA_MID_API_PORT=8080
+export FIRMA_ELECTRONICA_MID_DOCUMENTOS_CRUD_URL=http://xxxxxxxxx/v1/
+export FIRMA_ELECTRONICA_MID_GESTOR_DOCUMENTAL_URL=http://xxxxxxxxx/v1/
+export FIRMA_ELECTRONICA_MID_VERIFICACION=https://verificacion.interna
+export FIRMA_ELECTRONICA_MID_VERIFICACION_EXTERNA=https://verificacion.externa
+export FIRMA_ELECTRONICA_MID_QR_SECRET_PROVIDER=aws
+export FIRMA_ELECTRONICA_MID_QR_SECRET_NAME=firma-electronica-mid/dev/qr-token
+export FIRMA_ELECTRONICA_MID_RUN_MODE=dev
 
 # 5. instalar dependencias de python
 pip install -r requirements.txt
