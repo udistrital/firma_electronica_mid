@@ -2,7 +2,9 @@ from flask import Flask
 from conf import conf
 from controllers import error
 from routers import router
+from services.secret_manager import preload_active_secret
 conf.checkEnv()
+preload_active_secret()
 
 app = Flask(__name__) #Creo la app de servidor
 

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from conf.conf import (
@@ -22,6 +23,8 @@ class SecretMaterial:
 
 
 KID_SEPARATOR = "#"
+_ACTIVE_SECRET: SecretMaterial | None = None
+_SECRET_CACHE: dict[str, SecretMaterial] = {}
 
 
 def build_kid(secret_name: str, version: str) -> str:
@@ -33,7 +36,37 @@ def parse_kid(kid: str) -> tuple[str, str]:
     return secret_name, version
 
 
+def reset_secret_cache() -> None:
+    global _ACTIVE_SECRET
+    _ACTIVE_SECRET = None
+    _SECRET_CACHE.clear()
+
+
+def preload_active_secret(force: bool = False) -> SecretMaterial:
+    global _ACTIVE_SECRET
+
+    if _ACTIVE_SECRET is not None and not force:
+        return _ACTIVE_SECRET
+
+    secret_material = _fetch_active_secret_material()
+    _ACTIVE_SECRET = secret_material
+    _SECRET_CACHE[secret_material.kid] = secret_material
+    logging.info(
+        "QR secret preloaded provider=%s secret_name=%s version=%s",
+        get_qr_secret_provider(),
+        secret_material.secret_name,
+        secret_material.version,
+    )
+    return secret_material
+
+
 def get_active_secret_material() -> SecretMaterial:
+    if _ACTIVE_SECRET is not None:
+        return _ACTIVE_SECRET
+    return preload_active_secret()
+
+
+def _fetch_active_secret_material() -> SecretMaterial:
     provider = get_qr_secret_provider()
     if provider == "env":
         return _get_env_active_secret_material()
@@ -45,15 +78,42 @@ def get_active_secret_material() -> SecretMaterial:
 
 
 def get_secret_material_by_kid(kid: str) -> SecretMaterial:
+    if _ACTIVE_SECRET is not None and _ACTIVE_SECRET.kid == kid:
+        logging.info(
+            "QR validation using preloaded secret secret_name=%s version=%s",
+            _ACTIVE_SECRET.secret_name,
+            _ACTIVE_SECRET.version,
+        )
+        return _ACTIVE_SECRET
+
+    cached_secret = _SECRET_CACHE.get(kid)
+    if cached_secret is not None:
+        logging.info(
+            "QR validation using cached historical secret secret_name=%s version=%s",
+            cached_secret.secret_name,
+            cached_secret.version,
+        )
+        return cached_secret
+
     provider = get_qr_secret_provider()
     secret_name, version = parse_kid(kid)
     if provider == "env":
-        return _get_env_secret_material(secret_name, version)
-    if provider == "aws":
-        return _get_aws_secret_material(secret_name, version)
-    raise NotImplementedError(
-        f"QR secret provider '{provider}' is not implemented yet; integrate the official SDK here"
+        secret_material = _get_env_secret_material(secret_name, version)
+    elif provider == "aws":
+        secret_material = _get_aws_secret_material(secret_name, version)
+    else:
+        raise NotImplementedError(
+            f"QR secret provider '{provider}' is not implemented yet; integrate the official SDK here"
+        )
+
+    _SECRET_CACHE[kid] = secret_material
+    logging.info(
+        "QR validation loaded historical secret provider=%s secret_name=%s version=%s",
+        provider,
+        secret_material.secret_name,
+        secret_material.version,
     )
+    return secret_material
 
 
 def _get_env_active_secret_material() -> SecretMaterial:
@@ -131,4 +191,5 @@ def describe_secret_backend() -> dict[str, str]:
         "provider": provider,
         "secret_name": get_qr_secret_arn() or get_qr_secret_name(),
         "active_version": get_qr_secret_active_version() if provider == "env" else "AWSCURRENT",
+        "preloaded_version": _ACTIVE_SECRET.version if _ACTIVE_SECRET is not None else "",
     }
