@@ -2,6 +2,8 @@
 
 import os
 import base64
+import logging
+from io import BytesIO
 
 from cryptography.fernet import Fernet
 
@@ -16,9 +18,11 @@ from pypdf import PdfWriter, PdfReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pdfminer.high_level import extract_pages
+from reportlab.lib.utils import ImageReader
 from textwrap import wrap
 import time
 from fillpdf import fillpdfs
+from conf.conf import get_verificacion_externa_url, get_verificacion_url
 
 os.environ['TZ'] = 'America/Bogota'
 time.tzset()
@@ -33,6 +37,30 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
+
+    def build_qr_image(self, qr_url):
+        if not qr_url:
+            return None
+
+        try:
+            import qrcode
+        except ImportError:
+            logging.warning("qrcode dependency not installed; QR image skipped")
+            return None
+
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=6,
+            border=2,
+        )
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white").get_image().convert("RGB")
+        image_buffer = BytesIO()
+        image.save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+        return ImageReader(image_buffer)
 
     def lastPageItems(self, pdfIn):
         """
@@ -122,12 +150,18 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
-        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
+        link_verificacion = "Verificación interna: " + get_verificacion_url()
+        link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
         y = yPosition
         signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 6 #Espacios
+        qr_url = datos.get("qr_url")
+        qr_image = self.build_qr_image(qr_url)
+        qr_size = 78
+        qr_draw_x = x + 315
+        qr_reserved_space = 110 if qr_image else 0
+        qr_draw_y = None
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -156,6 +190,7 @@ class ElectronicSign:
 
             signPageSize += wraped_firma.count("\n")
         signPageSize *= 10
+        signPageSize += qr_reserved_space
 
 
 
@@ -265,6 +300,7 @@ class ElectronicSign:
             y = y - 10
             t.setFont('VeraBd', 8)
             y = y - 10
+            qr_anchor_y = y
             t.setTextOrigin(x, y)
             t.textLine("Para verificar la autenticidad de la presente firma electrónica")
             t.textLine("consulte el código suministrado en el sitio web indicado:")
@@ -274,11 +310,24 @@ class ElectronicSign:
             link_ver_externo = link_verificacion_externa
             t.setFont("Vera", 8)
             t.setTextOrigin(x, y)
-            t.textLine(link_ver)
-            t.textLine(link_ver_externo)
+            wrapped_link_ver = "\n".join(wrap(link_ver, 60))
+            wrapped_link_ver_externo = "\n".join(wrap(link_ver_externo, 60))
+            t.textLines(wrapped_link_ver)
+            y = y - wrapped_link_ver.count("\n") * 10
+            t.setTextOrigin(x, y - 10)
+            t.textLines(wrapped_link_ver_externo)
+            y = y - 10 - wrapped_link_ver_externo.count("\n") * 10
+            if qr_url:
+                y = y - 15
+                t.setTextOrigin(x, y)
+                t.textLine("Acceso seguro al documento original: escanee el QR.")
+                qr_draw_y = max(25, qr_anchor_y - qr_size + 6)
             #Fin enlace
 
         c.drawText(t)
+        if qr_image:
+            qr_y = qr_draw_y if qr_draw_y is not None else max(25, y - 90)
+            c.drawImage(qr_image, qr_draw_x, qr_y, width=qr_size, height=qr_size, preserveAspectRatio=True, mask="auto")
         c.showPage()
         c.save()
 
@@ -304,8 +353,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
-        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
+        link_verificacion = "Verificación interna: " + get_verificacion_url()
+        link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
         y = yPosition
