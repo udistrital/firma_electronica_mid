@@ -14,11 +14,11 @@ from services.secret_manager import (
 @patch.dict(
     "os.environ",
     {
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_PROVIDER": "env",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_NAME": "qr-token-key",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_ACTIVE_VERSION": "7",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_VERSIONS_JSON": '{"7":"super-secret-for-tests"}',
-        "FIRMA_ELECTRONICA_MID_VERIFICACION_EXTERNA": "https://firma.test",
+        "QR_SECRET_PROVIDER": "dev",
+        "QR_SECRET_NAME": "qr-token-key",
+        "QR_SECRET_ACTIVE_VERSION": "7",
+        "QR_SECRET_VERSIONS_JSON": '{"7":"super-secret-for-tests"}',
+        "VERIFICACION_EXTERNA": "https://firma.test",
     },
     clear=True,
 )
@@ -69,13 +69,13 @@ def test_build_and_validate_legacy_qr_token():
 @patch.dict(
     "os.environ",
     {
-        "FIRMA_ELECTRONICA_MID_DOCUMENTOS_CRUD_URL": "http://documentos/",
-        "FIRMA_ELECTRONICA_MID_GESTOR_DOCUMENTAL_URL": "http://gestor/v1/",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_PROVIDER": "env",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_NAME": "qr-token-key",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_ACTIVE_VERSION": "3",
-        "FIRMA_ELECTRONICA_MID_QR_SECRET_VERSIONS_JSON": '{"3":"super-secret-for-tests"}',
-        "FIRMA_ELECTRONICA_MID_VERIFICACION_EXTERNA": "https://cliente.test/verificacion",
+        "DOCUMENTOS_CRUD_URL": "http://documentos/",
+        "GESTOR_DOCUMENTAL_URL": "http://gestor/v1/",
+        "QR_SECRET_PROVIDER": "dev",
+        "QR_SECRET_NAME": "qr-token-key",
+        "QR_SECRET_ACTIVE_VERSION": "3",
+        "QR_SECRET_VERSIONS_JSON": '{"3":"super-secret-for-tests"}',
+        "VERIFICACION_EXTERNA": "https://cliente.test/verificacion",
     },
     clear=True,
 )

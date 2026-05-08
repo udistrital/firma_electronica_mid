@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from conf.conf import (
     get_qr_secret_active_version,
-    get_qr_secret_arn,
     get_qr_secret_name,
     get_qr_secret_provider,
     get_qr_secret_versions,
@@ -68,9 +67,9 @@ def get_active_secret_material() -> SecretMaterial:
 
 def _fetch_active_secret_material() -> SecretMaterial:
     provider = get_qr_secret_provider()
-    if provider == "env":
+    if provider == "dev":
         return _get_env_active_secret_material()
-    if provider == "aws":
+    if provider == "prod":
         return _get_aws_active_secret_material()
     raise NotImplementedError(
         f"QR secret provider '{provider}' is not implemented yet; integrate the official SDK here"
@@ -97,9 +96,9 @@ def get_secret_material_by_kid(kid: str) -> SecretMaterial:
 
     provider = get_qr_secret_provider()
     secret_name, version = parse_kid(kid)
-    if provider == "env":
+    if provider == "dev":
         secret_material = _get_env_secret_material(secret_name, version)
-    elif provider == "aws":
+    elif provider == "prod":
         secret_material = _get_aws_secret_material(secret_name, version)
     else:
         raise NotImplementedError(
@@ -120,7 +119,7 @@ def _get_env_active_secret_material() -> SecretMaterial:
     secret_name = get_qr_secret_name()
     version = get_qr_secret_active_version()
     if not version:
-        raise ValueError("QR_SECRET_ACTIVE_VERSION is required when QR_SECRET_PROVIDER=env")
+        raise ValueError("QR_SECRET_ACTIVE_VERSION is required when QR_SECRET_PROVIDER=dev")
     return _get_env_secret_material(secret_name, version)
 
 
@@ -150,7 +149,7 @@ def _get_aws_client():
 
 
 def _get_aws_secret_id() -> str:
-    return get_qr_secret_arn() or get_qr_secret_name()
+    return get_qr_secret_name()
 
 
 def _secret_value_from_response(response: dict) -> str:
@@ -189,7 +188,7 @@ def describe_secret_backend() -> dict[str, str]:
     provider = get_qr_secret_provider()
     return {
         "provider": provider,
-        "secret_name": get_qr_secret_arn() or get_qr_secret_name(),
-        "active_version": get_qr_secret_active_version() if provider == "env" else "AWSCURRENT",
+        "secret_name": get_qr_secret_name(),
+        "active_version": get_qr_secret_active_version() if provider == "dev" else "AWSCURRENT",
         "preloaded_version": _ACTIVE_SECRET.version if _ACTIVE_SECRET is not None else "",
     }
