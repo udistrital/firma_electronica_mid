@@ -1,10 +1,9 @@
-import os
 from flask import Blueprint, request
 from flask_restx import Api, Resource
 from flask_cors import CORS, cross_origin
 from controllers import healthCheck, controllerFirma
 from models.model_params import define_parameters
-from conf.conf import api_cors_config
+from conf.conf import ENV, api_cors_config
 
 api_bp = Blueprint("api_bp", __name__, url_prefix="/api")
 CORS(api_bp)
@@ -19,7 +18,7 @@ docDocumentacion = Api(
     version="1.0",
     title="firma_electronica_mid",
     description="API para la firma electrónica de documentos",
-    doc="/swagger" if os.environ['ENV'] == "dev" else None
+    doc="/swagger" if ENV == "dev" else None
 )
 
 ns_v1 = docDocumentacion.namespace(
@@ -74,6 +73,36 @@ class VerifyFirmaResource(Resource):
         body = request.get_json()
         return controllerFirma.postVerify(body)
 
+@ns_v1.route("/qr/<string:token>")
+class SecureQrResource(Resource):
+
+    @cross_origin(**api_cors_config)
+    def get(self, token):
+        """
+            Redirige al cliente de verificación a partir de un token QR firmado
+        """
+        return controllerFirma.resolveSecureQr(token)
+
+@ns_v1.route("/qr/resolve/<string:token>")
+class SecureQrResolveResource(Resource):
+
+    @cross_origin(**api_cors_config)
+    def get(self, token):
+        """
+            Resuelve un token QR validado y retorna datos del documento para el cliente
+        """
+        return controllerFirma.resolveSecureQrData(token)
+
+@ns_v1.route("/qr/file/<string:token>")
+class SecureQrFileResource(Resource):
+
+    @cross_origin(**api_cors_config)
+    def get(self, token):
+        """
+            Retorna el archivo del documento validado a partir del token QR
+        """
+        return controllerFirma.resolveSecureQrFile(token)
+
 @ns_v1.route("/firma_multiple")
 class FirmaMultipleResource(Resource):
 
@@ -98,4 +127,3 @@ class FirmaMultipleResource(Resource):
 
 def addRutas(app):
     app.register_blueprint(api_bp)
-
