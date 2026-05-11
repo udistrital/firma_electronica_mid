@@ -498,13 +498,13 @@ def resolveSecureQrData(token):
         file_content = responseDocumento.get("file:content", {})
         filename = file_content.get("name") or responseDocumento.get("dc:title") or f"{enlace}.pdf"
 
-        base_url = request.url_root.rstrip("/")
         response_payload = {
             "Status": "200",
             "res": {
                 "firma_id": payload["firma_id"],
                 "filename": filename,
-                "secure_file_url": f"{base_url}/api/v1/qr/file/{token}",
+                "token": token,
+                "file_path": f"/qr/file/{token}",
             }
         }
         return Response(json.dumps(response_payload), status=200, mimetype='application/json')
