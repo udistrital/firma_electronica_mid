@@ -1,7 +1,146 @@
-basePath: /v1
+swagger: '2.0'
+basePath: /api
+paths:
+  /v1/firma_electronica:
+    post:
+      responses:
+        '200':
+          description: Success
+      summary: Permite firmar un documento y subirlo a nuxeo consumiendo a gestor
+        documental
+      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
+        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
+        \ con cuerpo, status y en formato json"
+      operationId: post_firma_electronica_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/upload_resquest'
+      tags:
+      - v1
+  /v1/firma_multiple:
+    post:
+      responses:
+        '200':
+          description: Success
+      summary: Permite realizar firma múltiple asincrónica utilizando como pámetro
+        para decidir la etapa en la que se está firmando la clave valor etapa_firma
+      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
+        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
+        \ con cuerpo, status y en formato json"
+      operationId: post_firma_multiple_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/upload_resquest'
+      tags:
+      - v1
+  /v1/qr/file/{token}:
+    parameters:
+    - name: token
+      in: path
+      required: true
+      type: string
+    get:
+      responses:
+        '200':
+          description: Success
+      summary: Retorna el archivo del documento validado a partir del token QR
+      operationId: get_secure_qr_file_resource
+      tags:
+      - v1
+  /v1/qr/resolve/{token}:
+    parameters:
+    - name: token
+      in: path
+      required: true
+      type: string
+    get:
+      responses:
+        '200':
+          description: Success
+      summary: Resuelve un token QR validado y retorna datos del documento para el
+        cliente
+      operationId: get_secure_qr_resolve_resource
+      tags:
+      - v1
+  /v1/qr/{token}:
+    parameters:
+    - name: token
+      in: path
+      required: true
+      type: string
+    get:
+      responses:
+        '200':
+          description: Success
+      summary: Redirige al cliente de verificación a partir de un token QR firmado
+      operationId: get_secure_qr_resource
+      tags:
+      - v1
+  /v1/verify:
+    post:
+      responses:
+        '200':
+          description: Success
+      summary: Permite verificar la firma electronica de un documento
+      description: "Parameters\n----------\nrequest : json\n    Json Body {firma},\
+        \ firma electronica encriptada con el id\n\nReturns\n-------\nResponse\n \
+        \   Respuesta con cuerpo, status y en formato json"
+      operationId: post_verify_firma_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/firma_request'
+      tags:
+      - v1
+info:
+  title: firma_electronica_mid
+  version: '1.0'
+  description: API para la firma electrónica de documentos
+produces:
+- application/json
 consumes:
 - application/json
+tags:
+- name: v1
+  description: Servicios de firma electrónica
 definitions:
+  upload_resquest:
+    properties:
+      IdTipoDocumento:
+        type: integer
+      nombre:
+        type: string
+      metadatos:
+        $ref: '#/definitions/documentos_crud_metadata'
+      firmantes:
+        type: array
+        items:
+          $ref: '#/definitions/firmantes_info'
+      representantes:
+        type: array
+        items:
+          $ref: '#/definitions/representantes_info'
+      descripcion:
+        type: string
+      etapa_firma:
+        type: integer
+      file:
+        type: string
+    type: object
   documentos_crud_metadata:
     properties:
       dato_a:
@@ -11,147 +150,39 @@ definitions:
       dato_n:
         type: string
     type: object
-  firma_request:
-    properties:
-      fileUp:
-        type: string
-      firma:
-        type: string
-      urlFileUp:
-        type: string
-    type: object
   firmantes_info:
     properties:
-      cargo:
-        type: string
-      identificacion:
-        type: string
       nombre:
         type: string
+      cargo:
+        type: string
       tipoId:
+        type: string
+      identificacion:
         type: string
     type: object
   representantes_info:
     properties:
-      cargo:
-        type: string
-      identificacion:
-        type: string
       nombre:
+        type: string
+      cargo:
         type: string
       tipoId:
         type: string
+      identificacion:
+        type: string
     type: object
-  upload_resquest:
+  firma_request:
     properties:
-      IdTipoDocumento:
-        type: integer
-      descripcion:
+      firma:
         type: string
-      etapa_firma:
-        type: integer
-      file:
+      fileUp:
         type: string
-      firmantes:
-        items:
-          $ref: '#/definitions/firmantes_info'
-        type: array
-      metadatos:
-        $ref: '#/definitions/documentos_crud_metadata'
-      nombre:
+      urlFileUp:
         type: string
-      representantes:
-        items:
-          $ref: '#/definitions/representantes_info'
-        type: array
     type: object
-info:
-  description: API para la firma electrónica de documentos
-  title: firma_electronica
-  version: '1.0'
-paths:
-  /firma_electronica:
-    post:
-      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
-        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
-        \ con cuerpo, status y en formato json"
-      operationId: post_doc_firma_electronica
-      parameters:
-      - in: body
-        name: payload
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/upload_resquest'
-          type: array
-      responses:
-        '200':
-          description: Success
-        '400':
-          description: Bad request
-        '500':
-          description: Nuxeo Error
-      summary: Permite firmar un documento y subirlo a nuxeo consumiendo a gestor
-        documental
-      tags:
-      - firma_electronica
-  /firma_multiple:
-    post:
-      description: "Parameters\n----------\nrequest : json\n    Json Body {Document},\
-        \ Documento que será firmado\n\nReturns\n-------\nResponse\n    Respuesta\
-        \ con cuerpo, status y en formato json"
-      operationId: post_doc_firma_multiple_inicial
-      parameters:
-      - in: body
-        name: payload
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/upload_resquest'
-          type: array
-      responses:
-        '200':
-          description: Success
-        '400':
-          description: Bad request
-        '500':
-          description: Nuxeo error
-      summary: Permite realizar firma múltiple asincrónica utilizando como pámetro
-        para decidir la etapa en la que se está firmando la clave valor etapa_firma
-      tags:
-      - firma_electronica
-  /verify:
-    post:
-      description: "Parameters\n----------\nrequest : json\n    Json Body {firma},\
-        \ firma electronica encriptada con el id\n\nReturns\n-------\nResponse\n \
-        \   Respuesta con cuerpo, status y en formato json"
-      operationId: post_doc_post_verify
-      parameters:
-      - in: body
-        name: payload
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/firma_request'
-          type: array
-      responses:
-        '200':
-          description: Success
-        '400':
-          description: Bad request
-        '500':
-          description: Nuxeo error
-      summary: permite verificar la firma electronica de un documento
-      tags:
-      - firma_electronica
-produces:
-- application/json
 responses:
-  MaskError:
-    description: When any error occurs on mask
   ParseError:
     description: When a mask can't be parsed
-swagger: '2.0'
-tags:
-- description: methods for electronic signature process
-  name: firma_electronica
+  MaskError:
+    description: When any error occurs on mask
