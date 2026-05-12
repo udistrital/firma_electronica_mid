@@ -2,7 +2,7 @@ import logging, json, requests, os, base64
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from flask import Response
+from flask import Response, request
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
 from services.qr_security import build_qr_url, validate_qr_token
@@ -19,6 +19,11 @@ def _get_qr_token(data):
         raise ValueError("Field token is required")
 
     return token
+
+
+def _should_return_qr_file_json():
+    accept_header = request.headers.get("Accept", "")
+    return "application/json" in accept_header.lower()
 
 def postFirmaElectronica(data):
     """
@@ -542,9 +547,24 @@ def resolveSecureQrFile(data):
         file_content = responseDocumento.get("file:content", {})
         mime_type = file_content.get("mime-type", "application/pdf")
         filename = file_content.get("name") or responseDocumento.get("dc:title") or f"{enlace}.pdf"
+        content_disposition = f'inline; filename="{filename}"'
+
+        if _should_return_qr_file_json():
+            response_payload = {
+                "Status": "200",
+                "res": {
+                    "token": token,
+                    "filename": filename,
+                    "mime_type": mime_type,
+                    "encoding": "base64",
+                    "content_disposition": content_disposition,
+                    "file": base64_file,
+                }
+            }
+            return Response(json.dumps(response_payload), status=200, mimetype='application/json')
 
         response = Response(file_bytes, status=200, mimetype=mime_type)
-        response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+        response.headers["Content-Disposition"] = content_disposition
         response.headers["Cache-Control"] = "no-store"
         return response
     except ValueError as e:

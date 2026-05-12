@@ -1,7 +1,8 @@
 import json
 from unittest.mock import patch
+from flask import Flask
 
-from controllers.controllerFirma import resolveSecureQr
+from controllers.controllerFirma import resolveSecureQr, resolveSecureQrFile
 from services.qr_security import _build_fernet, build_qr_token, validate_qr_token
 from services.secret_manager import (
     describe_secret_backend,
@@ -88,3 +89,87 @@ def test_resolve_secure_qr_redirects_to_client(mock_get):
     payload = json.loads(response.get_data(as_text=True))
     assert response.status_code == 200
     assert payload["redirect"] == f"https://cliente.test/verificacion?token={token}"
+
+
+@patch("controllers.controllerFirma.requests.get")
+@patch.dict(
+    "os.environ",
+    {
+        "DOCUMENTOS_CRUD_URL": "http://documentos/",
+        "GESTOR_DOCUMENTAL_URL": "http://gestor/v1/",
+        "QR_SECRET_PROVIDER": "dev",
+        "QR_SECRET_NAME": "qr-token-key",
+        "QR_SECRET_ACTIVE_VERSION": "3",
+        "QR_SECRET_VERSIONS_JSON": '{"3":"super-secret-for-tests"}',
+        "VERIFICACION_EXTERNA": "https://cliente.test/verificacion",
+    },
+    clear=True,
+)
+def test_resolve_secure_qr_file_returns_json_when_requested(mock_get):
+    class MockResponse:
+        def __init__(self, payload, status_code=200):
+            self.content = json.dumps(payload).encode("utf-8")
+            self.status_code = status_code
+
+    reset_secret_cache()
+    token = build_qr_token(55, 777)
+    mock_get.side_effect = [
+        MockResponse({"DocumentoId": {"Id": 777, "Enlace": "abc123"}}),
+        MockResponse({
+            "file": "SGVsbG8=",
+            "file:content": {"name": "test.pdf", "mime-type": "application/pdf"},
+            "dc:title": "test.pdf",
+        }),
+    ]
+
+    app = Flask(__name__)
+    with app.test_request_context(headers={"Accept": "application/json, text/plain, */*"}):
+        response = resolveSecureQrFile({"token": token})
+
+    payload = json.loads(response.get_data(as_text=True))
+    assert response.status_code == 200
+    assert response.mimetype == "application/json"
+    assert payload["res"]["file"] == "SGVsbG8="
+    assert payload["res"]["filename"] == "test.pdf"
+    assert payload["res"]["mime_type"] == "application/pdf"
+
+
+@patch("controllers.controllerFirma.requests.get")
+@patch.dict(
+    "os.environ",
+    {
+        "DOCUMENTOS_CRUD_URL": "http://documentos/",
+        "GESTOR_DOCUMENTAL_URL": "http://gestor/v1/",
+        "QR_SECRET_PROVIDER": "dev",
+        "QR_SECRET_NAME": "qr-token-key",
+        "QR_SECRET_ACTIVE_VERSION": "3",
+        "QR_SECRET_VERSIONS_JSON": '{"3":"super-secret-for-tests"}',
+        "VERIFICACION_EXTERNA": "https://cliente.test/verificacion",
+    },
+    clear=True,
+)
+def test_resolve_secure_qr_file_returns_binary_pdf_when_json_not_requested(mock_get):
+    class MockResponse:
+        def __init__(self, payload, status_code=200):
+            self.content = json.dumps(payload).encode("utf-8")
+            self.status_code = status_code
+
+    reset_secret_cache()
+    token = build_qr_token(55, 777)
+    mock_get.side_effect = [
+        MockResponse({"DocumentoId": {"Id": 777, "Enlace": "abc123"}}),
+        MockResponse({
+            "file": "SGVsbG8=",
+            "file:content": {"name": "test.pdf", "mime-type": "application/pdf"},
+            "dc:title": "test.pdf",
+        }),
+    ]
+
+    app = Flask(__name__)
+    with app.test_request_context(headers={"Accept": "application/pdf"}):
+        response = resolveSecureQrFile({"token": token})
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert response.get_data() == b"Hello"
+    assert response.headers["Content-Disposition"] == 'inline; filename="test.pdf"'
