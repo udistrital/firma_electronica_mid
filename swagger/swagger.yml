@@ -1,7 +1,7 @@
 swagger: '2.0'
-basePath: /api
+basePath: /api/v1
 paths:
-  /v1/firma_electronica:
+  /firma_electronica:
     post:
       responses:
         '200':
@@ -22,7 +22,7 @@ paths:
             $ref: '#/definitions/upload_resquest'
       tags:
       - v1
-  /v1/firma_multiple:
+  /firma_multiple:
     post:
       responses:
         '200':
@@ -43,50 +43,53 @@ paths:
             $ref: '#/definitions/upload_resquest'
       tags:
       - v1
-  /v1/qr/file/{token}:
-    parameters:
-    - name: token
-      in: path
-      required: true
-      type: string
-    get:
+  /qr/file:
+    post:
       responses:
         '200':
           description: Success
       summary: Retorna el archivo del documento validado a partir del token QR
-      operationId: get_secure_qr_file_resource
+      operationId: post_secure_qr_file_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          $ref: '#/definitions/qr_token_request'
       tags:
       - v1
-  /v1/qr/resolve/{token}:
-    parameters:
-    - name: token
-      in: path
-      required: true
-      type: string
-    get:
+  /qr/resolve:
+    post:
       responses:
         '200':
           description: Success
       summary: Resuelve un token QR validado y retorna datos del documento para el
         cliente
-      operationId: get_secure_qr_resolve_resource
+      operationId: post_secure_qr_resolve_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          $ref: '#/definitions/qr_token_request'
       tags:
       - v1
-  /v1/qr/{token}:
-    parameters:
-    - name: token
-      in: path
-      required: true
-      type: string
-    get:
+  /qr:
+    post:
       responses:
         '200':
           description: Success
       summary: Redirige al cliente de verificación a partir de un token QR firmado
-      operationId: get_secure_qr_resource
+      operationId: post_secure_qr_resource
+      parameters:
+      - name: payload
+        required: true
+        in: body
+        schema:
+          $ref: '#/definitions/qr_token_request'
       tags:
       - v1
-  /v1/verify:
+  /verify:
     post:
       responses:
         '200':
@@ -179,6 +182,11 @@ definitions:
       fileUp:
         type: string
       urlFileUp:
+        type: string
+    type: object
+  qr_token_request:
+    properties:
+      token:
         type: string
     type: object
 responses:
