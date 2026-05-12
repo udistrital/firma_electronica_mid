@@ -1,3 +1,4 @@
+import logging
 from flask import Blueprint, request
 from flask_restx import Api, Resource
 from flask_cors import CORS, cross_origin
@@ -71,6 +72,7 @@ class VerifyFirmaResource(Resource):
                 Respuesta con cuerpo, status y en formato json
         """
         body = request.get_json()
+        logging.info("[trace] http.verify.enter")
         return controllerFirma.postVerify(body)
 
 @ns_v1.route("/qr/<string:token>")
@@ -81,6 +83,7 @@ class SecureQrResource(Resource):
         """
             Redirige al cliente de verificación a partir de un token QR firmado
         """
+        logging.info("[trace] http.qr.redirect.enter")
         return controllerFirma.resolveSecureQr(token)
 
 @ns_v1.route("/qr/resolve/<string:token>")
@@ -91,6 +94,7 @@ class SecureQrResolveResource(Resource):
         """
             Resuelve un token QR validado y retorna datos del documento para el cliente
         """
+        logging.info("[trace] http.qr.resolve.enter")
         return controllerFirma.resolveSecureQrData(token)
 
 @ns_v1.route("/qr/file/<string:token>")
@@ -101,6 +105,7 @@ class SecureQrFileResource(Resource):
         """
             Retorna el archivo del documento validado a partir del token QR
         """
+        logging.info("[trace] http.qr.file.enter")
         return controllerFirma.resolveSecureQrFile(token)
 
 @ns_v1.route("/firma_multiple")

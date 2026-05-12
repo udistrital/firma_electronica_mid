@@ -9,6 +9,13 @@ from services.qr_security import build_qr_url, validate_qr_token
 from conf.conf import get_documentos_crud_url, get_gestor_documental_url, get_qr_base_url
 import uuid
 
+
+def _trace(stage, extra=None):
+    message = f"[trace] {stage}"
+    if extra:
+        message = f"{message} | {extra}"
+    logging.info(message)
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -193,19 +200,28 @@ def postVerify(data):
     """
     response_array = []
     try:
+        _trace("verify.start")
         for i in range(len(data)):
+            _trace("verify.item.start", f"index={i}")
             if str(data[i]["firma"]) == "":
+                _trace("verify.item.missing_firma", f"index={i}")
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+            _trace("verify.documentos_crud.request", f"index={i}")
             resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(data[i]["firma"]))
+            _trace("verify.documentos_crud.response", f"index={i} status={resFirma.status_code}")
             if resFirma.status_code != 200:
+                _trace("verify.documentos_crud.non_200", f"index={i}")
                 return Response(resFirma, resFirma.status_code, mimetype='application/json')
             responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
             if responseGetFirma["DocumentoId"]["Enlace"]=="":
+                _trace("verify.document_link.empty", f"index={i}")
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
             elif responseGetFirma["DocumentoId"]["Enlace"]!="":
+                _trace("verify.gestor_documental.request", f"index={i}")
                 responseNuxeo = requests.get(get_gestor_documental_url()+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
+                _trace("verify.gestor_documental.response", f"index={i}")
                 responseNuxeo = json.loads(responseNuxeo.decode('utf8').replace("'", '"'))
                 #INICIO COMPARACIÓN
                 llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
@@ -216,6 +232,7 @@ def postVerify(data):
                 fileEqual = True #Por defecto true ya que de ser así sólo se muestra un Doc
                 public_key = load_pem_public_key(base64.b64decode(llavePublicaFirmaBD))
                 if base64User != "":
+                    _trace("verify.signature.compare.start", f"index={i}")
                     try:
                         public_key.verify(
                             base64.urlsafe_b64decode(firmaBD),
@@ -227,17 +244,22 @@ def postVerify(data):
                             hashes.SHA256()
                         )
                         fileEqual = True
+                        _trace("verify.signature.compare.ok", f"index={i}")
                     except Exception as e:
                         fileEqual = False
+                        _trace("verify.signature.compare.fail", f"index={i} type={type(e).__name__}")
                 #FIN COMPARACIÓN
                 responseNuxeo['fileEqual'] = fileEqual
                 responseNuxeo['urlFileUp'] = urlFileUp
                 response_array.append(responseNuxeo)
             else:
+                _trace("verify.signature.mismatch", f"index={i}")
                 error_dict = {'Message': "electronic signatures do not match", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
+        _trace("verify.end", f"items={len(response_array)}")
         return Response(json.dumps({'Status':'200', 'res':response_array}), status=200, mimetype='application/json')
     except Exception as e:
+            _trace("verify.exception", f"type={type(e).__name__}")
             if str(e) == "'firma'":
                 error_dict = {'Status':'the field firma is required','Code':'400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
@@ -433,23 +455,29 @@ def FirmaMultiple(data):
 
 def resolveSecureQr(token):
     try:
+        _trace("qr.redirect.start")
         validate_qr_token(token)
+        _trace("qr.redirect.token_ok")
         front_base_url = get_qr_base_url()
         if not front_base_url:
+            _trace("qr.redirect.missing_front_base")
             return Response(
                 json.dumps({'Status':'404','Error':'QR client URL not configured'}),
                 status=404,
                 mimetype='application/json'
             )
         separator = "&" if "?" in front_base_url else "?"
+        _trace("qr.redirect.redirecting")
         return redirect(f"{front_base_url}{separator}token={token}", code=302)
     except ValueError as e:
+        _trace("qr.redirect.value_error")
         return Response(
             json.dumps({'Status':'400','Error':str(e)}),
             status=400,
             mimetype='application/json'
         )
     except Exception as e:
+        _trace("qr.redirect.exception", f"type={type(e).__name__}")
         return Response(
             json.dumps({'Status':'500','Error':str(e)}),
             status=500,
@@ -459,9 +487,13 @@ def resolveSecureQr(token):
 
 def resolveSecureQrData(token):
     try:
+        _trace("qr.resolve.start")
         payload = validate_qr_token(token)
+        _trace("qr.resolve.token_ok")
         resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(payload["firma_id"]))
+        _trace("qr.resolve.documentos_crud.response", f"status={resFirma.status_code}")
         if resFirma.status_code != 200:
+            _trace("qr.resolve.documentos_crud.non_200")
             return Response(
                 json.dumps({'Status':'404','Error':'firma_electronica not found'}),
                 status=404,
@@ -471,6 +503,7 @@ def resolveSecureQrData(token):
         responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
         documento = responseGetFirma.get("DocumentoId", {})
         if str(documento.get("Id", "")) != payload["documento_id"]:
+            _trace("qr.resolve.document_mismatch")
             return Response(
                 json.dumps({'Status':'403','Error':'QR token/document mismatch'}),
                 status=403,
@@ -479,6 +512,7 @@ def resolveSecureQrData(token):
 
         enlace = documento.get("Enlace", "")
         if not enlace:
+            _trace("qr.resolve.document_link.empty")
             return Response(
                 json.dumps({'Status':'404','Error':'signed document link not available'}),
                 status=404,
@@ -487,7 +521,9 @@ def resolveSecureQrData(token):
 
         gestor_documento_url = get_gestor_documental_url().rstrip("/") + '/document/' + str(enlace)
         resDocumento = requests.get(gestor_documento_url)
+        _trace("qr.resolve.gestor_documental.response", f"status={resDocumento.status_code}")
         if resDocumento.status_code != 200:
+            _trace("qr.resolve.gestor_documental.non_200")
             return Response(
                 json.dumps({'Status':'404','Error':'document not found in gestor_documental_mid'}),
                 status=404,
@@ -507,14 +543,17 @@ def resolveSecureQrData(token):
                 "file_path": f"/qr/file/{token}",
             }
         }
+        _trace("qr.resolve.end")
         return Response(json.dumps(response_payload), status=200, mimetype='application/json')
     except ValueError as e:
+        _trace("qr.resolve.value_error")
         return Response(
             json.dumps({'Status':'400','Error':str(e)}),
             status=400,
             mimetype='application/json'
         )
     except Exception as e:
+        _trace("qr.resolve.exception", f"type={type(e).__name__}")
         return Response(
             json.dumps({'Status':'500','Error':str(e)}),
             status=500,
@@ -524,9 +563,13 @@ def resolveSecureQrData(token):
 
 def resolveSecureQrFile(token):
     try:
+        _trace("qr.file.start")
         payload = validate_qr_token(token)
+        _trace("qr.file.token_ok")
         resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(payload["firma_id"]))
+        _trace("qr.file.documentos_crud.response", f"status={resFirma.status_code}")
         if resFirma.status_code != 200:
+            _trace("qr.file.documentos_crud.non_200")
             return Response(
                 json.dumps({'Status':'404','Error':'firma_electronica not found'}),
                 status=404,
@@ -536,6 +579,7 @@ def resolveSecureQrFile(token):
         responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
         documento = responseGetFirma.get("DocumentoId", {})
         if str(documento.get("Id", "")) != payload["documento_id"]:
+            _trace("qr.file.document_mismatch")
             return Response(
                 json.dumps({'Status':'403','Error':'QR token/document mismatch'}),
                 status=403,
@@ -544,6 +588,7 @@ def resolveSecureQrFile(token):
 
         enlace = documento.get("Enlace", "")
         if not enlace:
+            _trace("qr.file.document_link.empty")
             return Response(
                 json.dumps({'Status':'404','Error':'signed document link not available'}),
                 status=404,
@@ -552,7 +597,9 @@ def resolveSecureQrFile(token):
 
         gestor_documento_url = get_gestor_documental_url().rstrip("/") + '/document/' + str(enlace)
         resDocumento = requests.get(gestor_documento_url)
+        _trace("qr.file.gestor_documental.response", f"status={resDocumento.status_code}")
         if resDocumento.status_code != 200:
+            _trace("qr.file.gestor_documental.non_200")
             return Response(
                 json.dumps({'Status':'404','Error':'document not found in gestor_documental_mid'}),
                 status=404,
@@ -562,6 +609,7 @@ def resolveSecureQrFile(token):
         responseDocumento = json.loads(resDocumento.content.decode('utf8').replace("'", '"'))
         base64_file = responseDocumento.get("file", "")
         if not base64_file:
+            _trace("qr.file.document_content.empty")
             return Response(
                 json.dumps({'Status':'404','Error':'document content not available'}),
                 status=404,
@@ -571,6 +619,7 @@ def resolveSecureQrFile(token):
         try:
             file_bytes = base64.b64decode(base64_file)
         except Exception:
+            _trace("qr.file.document_content.invalid_base64")
             return Response(
                 json.dumps({'Status':'500','Error':'invalid document base64 content'}),
                 status=500,
@@ -584,14 +633,17 @@ def resolveSecureQrFile(token):
         response = Response(file_bytes, status=200, mimetype=mime_type)
         response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
         response.headers["Cache-Control"] = "no-store"
+        _trace("qr.file.end")
         return response
     except ValueError as e:
+        _trace("qr.file.value_error")
         return Response(
             json.dumps({'Status':'400','Error':str(e)}),
             status=400,
             mimetype='application/json'
         )
     except Exception as e:
+        _trace("qr.file.exception", f"type={type(e).__name__}")
         return Response(
             json.dumps({'Status':'500','Error':str(e)}),
             status=500,
