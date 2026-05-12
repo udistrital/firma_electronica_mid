@@ -30,17 +30,29 @@ QR_SECRET_PROVIDER = _get_env("QR_SECRET_PROVIDER")
 QR_SECRET_NAME = _get_env("QR_SECRET_NAME")
 QR_SECRET_ACTIVE_VERSION = _get_env("QR_SECRET_ACTIVE_VERSION")
 QR_SECRET_VERSIONS_JSON = _get_env("QR_SECRET_VERSIONS_JSON")
+CORS_ORIGINS = _get_env("CORS_ORIGINS")
 ENV = env
 
 if env == "dev":
     origins = ["*"]
 else:
-    origins = [re.compile(r".*\.udistrital\.edu\.co$")]
+    origins = [
+        re.compile(r"^https?://([a-zA-Z0-9-]+\.)*udistrital\.edu\.co(?::\d+)?$"),
+    ]
+
+if CORS_ORIGINS:
+    explicit_origins = [origin.strip() for origin in CORS_ORIGINS.split(",") if origin.strip()]
+    if explicit_origins:
+        origins = explicit_origins
 
 api_cors_config = {
     "origins": origins,
     "methods": ["OPTIONS", "GET", "POST"],
-    "allow_headers": ["Authorization", "Content-Type"]
+    "allow_headers": ["Authorization", "Content-Type", "Origin", "Accept"],
+    "expose_headers": ["Content-Disposition", "Content-Type", "Cache-Control"],
+    "supports_credentials": True,
+    "automatic_options": True,
+    "vary_header": True,
 }
 
 def checkEnv():
