@@ -83,7 +83,8 @@ def test_resolve_secure_qr_redirects_to_client(mock_get):
     reset_secret_cache()
     token = build_qr_token(55, 777)
 
-    response = resolveSecureQr(token)
+    response = resolveSecureQr({"token": token})
 
-    assert response.status_code == 302
-    assert response.location == f"https://cliente.test/verificacion?token={token}"
+    payload = json.loads(response.get_data(as_text=True))
+    assert response.status_code == 200
+    assert payload["redirect"] == f"https://cliente.test/verificacion?token={token}"
