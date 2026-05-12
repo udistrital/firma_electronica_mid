@@ -51,5 +51,9 @@ def define_parameters(api):
         'fileUp': fields.String,
         'urlFileUp': fields.String,
     })]
+
+    qr_token_model = api.model('qr_token_request', {
+        'token': fields.String(required=True),
+    })
     
     return {k: v for k, v in vars().items() if not k.startswith('__')}
