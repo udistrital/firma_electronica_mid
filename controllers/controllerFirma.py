@@ -21,6 +21,24 @@ def _get_qr_token(data):
     return token
 
 
+def _normalize_representantes(data):
+    if not isinstance(data, list):
+        raise ValueError("400: invalid request body")
+
+    for item in data:
+        representantes = item["representantes"]
+        if isinstance(representantes, list):
+            continue
+        if isinstance(representantes, dict):
+            if len(representantes) == 0:
+                item["representantes"] = []
+                continue
+            if any(key in representantes for key in ("nombre", "cargo", "tipoId", "identificacion")):
+                item["representantes"] = [representantes]
+                continue
+        raise ValueError("400: invalid representantes field")
+
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -41,6 +59,7 @@ def postFirmaElectronica(data):
     archivos_temporales = []
 
     try:
+        _normalize_representantes(data)
         for i in range(len(data)):
 
             nombreGenerado = uuid.uuid4()
@@ -277,6 +296,7 @@ def FirmaMultiple(data):
     archivos_temporales = []
 
     try:
+        _normalize_representantes(data)
         for i in range(len(data)):
 
             nombreGenerado = uuid.uuid4()
