@@ -259,6 +259,75 @@ def test_falloPostFirmaElectronica(mock_put, mock_post, mock_get, data, mock_res
     response = postFirmaElectronica(data)
     assert response.status_code == 400
 
+
+@patch('controllers.controllerFirma.build_qr_url', return_value='http://qr.test/token')
+@patch('controllers.controllerFirma.firmar')
+@patch('controllers.controllerFirma.ElectronicSign.docFirmadoBase64', return_value='pdf-firmado-base64')
+@patch('controllers.controllerFirma.ElectronicSign.estamparFirmaElectronica')
+@patch('controllers.controllerFirma.ElectronicSign.verificaEsPdf', return_value=True)
+@patch('controllers.controllerFirma.requests.get')
+@patch('controllers.controllerFirma.requests.post')
+@patch('controllers.controllerFirma.requests.put')
+@patch.dict('os.environ', {'DOCUMENTOS_CRUD_URL': 'http://mocked.url/'})
+@patch.dict('os.environ', {'GESTOR_DOCUMENTAL_URL': 'http://mocked2.url/'})
+def test_postFirmaElectronica_acepta_representantes_objeto_vacio(
+    mock_put,
+    mock_post,
+    mock_get,
+    mock_verifica_pdf,
+    mock_estampar,
+    mock_doc_firmado,
+    mock_firmar,
+    mock_qr_url
+):
+    mock_response_get = Mock()
+    mock_response_get.content = b'{"Id": 2, "Nombre": "Documentos"}'
+    mock_response_get.status_code = 200
+    mock_get.return_value = mock_response_get
+
+    mock_response_post_documentos = Mock()
+    mock_response_post_documentos.content = b'{"Id": 156103}'
+    mock_response_post_documentos.status_code = 200
+
+    mock_response_post_firma = Mock()
+    mock_response_post_firma.content = b'{"Id": "firma-id"}'
+    mock_response_post_firma.status_code = 200
+
+    mock_post.side_effect = [mock_response_post_documentos, mock_response_post_firma]
+
+    mock_response_put = Mock()
+    mock_response_put.content = b'{"Status": "200", "res": {"Id": 156103}}'
+    mock_response_put.status_code = 200
+    mock_put.return_value = mock_response_put
+
+    mock_firmar.return_value = {
+        "codigo_autenticidad": "codigo",
+        "llaves": {"firma": "firma", "llave_publica": "llave"},
+    }
+
+    response = postFirmaElectronica([
+        {
+            "IdTipoDocumento": 2,
+            "nombre": "PruebaUnitaria",
+            "metadatos": {},
+            "firmantes": [{
+                "nombre": "FirmanteUnitario",
+                "cargo": "GerenteUnitario",
+                "tipoId": "cc",
+                "identificacion": "12345"
+            }],
+            "representantes": {},
+            "descripcion": "Prueba Unitaria de firma electrónica",
+            "file": "x" * 1001
+        }
+    ])
+
+    assert response.status_code == 200
+    assert mock_estampar.called
+
+    payload_firma = mock_post.call_args_list[1].kwargs["json"]
+    assert '"representantes": []' in payload_firma["Firmantes"]
+
 @patch('controllers.controllerFirma.requests.get')
 @pytest.mark.parametrize(
     "codigoVerificacion, mock_respuesta_docCrud", 
