@@ -156,15 +156,18 @@ class ElectronicSign:
         x = 80
         y = yPosition
         line_height = 9
-        label_offset = 115
-        text_wrap_width = 76
+        label_offset = 125
+        text_wrap_width = 60
+        verification_wrap_width = 42
         signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 5
         qr_url = datos.get("qr_url")
         qr_image = self.build_qr_image(qr_url)
-        qr_size = 64
-        qr_draw_x = x + 345
-        qr_reserved_space = 88 if qr_image else 0
+        qr_size = 90
+        qr_draw_x = x + 405
+        qr_reserved_space = 96 if qr_image else 0
         qr_draw_y = None
+        wrapped_link_ver = ""
+        wrapped_link_ver_externo = ""
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -192,7 +195,18 @@ class ElectronicSign:
             wraped_firma = "\n".join(wrap(firma, text_wrap_width))
 
             signPageSize += wraped_firma.count("\n")
+            wrapped_link_ver = "\n".join(wrap(link_verificacion, verification_wrap_width))
+            wrapped_link_ver_externo = "\n".join(wrap(link_verificacion_externa, verification_wrap_width))
         signPageSize *= line_height
+        if etapa == 3 and qr_image:
+            verification_left_lines = (
+                2
+                + 1
+                + wrapped_link_ver.count("\n") + 1
+                + wrapped_link_ver_externo.count("\n") + 1
+                + (1 if qr_url else 0)
+            )
+            qr_reserved_space = max(qr_reserved_space, (verification_left_lines * line_height) + 10, qr_size + 10)
         signPageSize += qr_reserved_space
 
 
@@ -284,9 +298,11 @@ class ElectronicSign:
             y = y - 12
             t.setTextOrigin(x, y)
             t.textLine("Tipo de documento:")
+            wrapped_tipo_documento = "\n".join(wrap(datos["tipo_documento"], text_wrap_width))
             t.setFont('Vera', 8)
             t.setTextOrigin(x + label_offset, y)
-            t.textLines("\n".join(wrap(datos["tipo_documento"], text_wrap_width)))
+            t.textLines(wrapped_tipo_documento)
+            y = y - wrapped_tipo_documento.count("\n") * line_height
 
             t.setFont('VeraBd', 8)
             y = y - 9
@@ -294,7 +310,9 @@ class ElectronicSign:
             t.textLine("Código de verificación:")
             t.setTextOrigin(x + label_offset, y)
             t.setFont('Vera', 8)
-            t.textLine(firma)
+            wrapped_codigo = "\n".join(wrap(firma, text_wrap_width))
+            t.textLines(wrapped_codigo)
+            y = y - wrapped_codigo.count("\n") * line_height
 
             y = y - 3
 
@@ -306,12 +324,8 @@ class ElectronicSign:
             t.textLine("Para verificar la autenticidad de la presente firma electrónica")
             t.textLine("consulte el código suministrado en el sitio web indicado:")
             y = y - 14
-            link_ver = link_verificacion
-            link_ver_externo = link_verificacion_externa
             t.setFont("Vera", 8)
             t.setTextOrigin(x, y)
-            wrapped_link_ver = "\n".join(wrap(link_ver, 56))
-            wrapped_link_ver_externo = "\n".join(wrap(link_ver_externo, 56))
             t.textLines(wrapped_link_ver)
             y = y - wrapped_link_ver.count("\n") * line_height
             t.setTextOrigin(x, y - line_height)
@@ -321,7 +335,7 @@ class ElectronicSign:
                 y = y - 10
                 t.setTextOrigin(x, y)
                 t.textLine("Acceso seguro al documento original: escanee el QR.")
-                qr_draw_y = max(25, qr_anchor_y - qr_size + 2)
+                qr_draw_y = y - qr_size + 14
             #Fin enlace
 
         c.drawText(t)
