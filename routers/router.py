@@ -32,7 +32,7 @@ model_params = define_parameters(docDocumentacion)
 @ns_v1.route("/firma_electronica")
 class FirmaElectronicaResource(Resource):
 
-    @ns_v1.expect(model_params["upload_model"], validate=True)
+    @ns_v1.expect(model_params["upload_model"], validate=False)
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -112,7 +112,7 @@ class SecureQrFileResource(Resource):
 @ns_v1.route("/firma_multiple")
 class FirmaMultipleResource(Resource):
 
-    @ns_v1.expect(model_params["firma_multiple_model"], validate=True)
+    @ns_v1.expect(model_params["firma_multiple_model"], validate=False)
     @cross_origin(**api_cors_config)
     def post(self):
         """
