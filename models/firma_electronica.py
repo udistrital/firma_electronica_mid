@@ -154,18 +154,20 @@ class ElectronicSign:
         link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
+        page = PdfReader(pdfIn).pages[0]
+        page_width = int(page.mediabox[2])
+        page_height = int(page.mediabox[3])
         y = yPosition
-        line_height = 9
-        section_gap = 6
-        row_gap = 3
+        line_height = 8
+        section_gap = 4
+        row_gap = 2
         label_width = 120
-        left_col_width = 310
-        left_value_width = 44
-        verification_wrap_width = 44
+        left_value_width = 46
+        verification_wrap_width = 96
         qr_url = datos.get("qr_url")
         qr_image = self.build_qr_image(qr_url)
-        qr_size = 92
-        qr_col_x = x + left_col_width + 22
+        qr_size = 78
+        qr_col_x = page_width - qr_size - 35
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -223,13 +225,15 @@ class ElectronicSign:
             verification_lines.append("Acceso seguro al documento original: escanee el QR.")
 
         verification_height = len(verification_lines) * line_height
-        lower_block_height = max(verification_height, qr_size if qr_image else 0)
+        lower_block_height = verification_height
 
-        title_height = 12 if etapa == 1 else 0
-        signPageSize = title_height + section_gap + rows_height + section_gap + lower_block_height + 12
+        title_height = 10 if etapa == 1 else 0
+        signPageSize = title_height + section_gap + rows_height + section_gap + lower_block_height + 8
+        if qr_image:
+            signPageSize = max(signPageSize, qr_size + 24)
 
         if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
+            y = page_height - self.YHEEADER
 
         c = canvas.Canvas(archivoFirma)
         pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
@@ -241,7 +245,7 @@ class ElectronicSign:
             cursor_y = cursor_y - 10
             c.drawString(x + 20, cursor_y, "Firmado Digitalmente")
 
-        cursor_y = cursor_y - 14
+        cursor_y = cursor_y - 12
 
         for label, value in rows:
             label_lines = label.split("\n")
@@ -292,7 +296,7 @@ class ElectronicSign:
         c.drawText(verification_body)
 
         if qr_image:
-            qr_draw_y = verification_top_y - qr_size + line_height
+            qr_draw_y = max(self.YFOOTER + 6, verification_top_y - qr_size - (3 * line_height))
             c.drawImage(
                 qr_image,
                 qr_col_x,
