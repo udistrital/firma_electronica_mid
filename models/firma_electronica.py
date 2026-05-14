@@ -2,6 +2,8 @@
 
 import os
 import base64
+import logging
+from io import BytesIO
 
 from cryptography.fernet import Fernet
 
@@ -16,9 +18,11 @@ from pypdf import PdfWriter, PdfReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pdfminer.high_level import extract_pages
+from reportlab.lib.utils import ImageReader
 from textwrap import wrap
 import time
 from fillpdf import fillpdfs
+from conf.conf import get_verificacion_externa_url, get_verificacion_url
 
 os.environ['TZ'] = 'America/Bogota'
 time.tzset()
@@ -33,6 +37,30 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
+
+    def build_qr_image(self, qr_url):
+        if not qr_url:
+            return None
+
+        try:
+            import qrcode
+        except ImportError:
+            logging.warning("qrcode dependency not installed; QR image skipped")
+            return None
+
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=6,
+            border=2,
+        )
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white").get_image().convert("RGB")
+        image_buffer = BytesIO()
+        image.save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+        return ImageReader(image_buffer)
 
     def lastPageItems(self, pdfIn):
         """
@@ -122,12 +150,24 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
-        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
+        link_verificacion = "Verificación interna: " + get_verificacion_url()
+        link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
+        page = PdfReader(pdfIn).pages[0]
+        page_width = int(page.mediabox[2])
+        page_height = int(page.mediabox[3])
         y = yPosition
-        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 6 #Espacios
+        line_height = 8
+        section_gap = 4
+        row_gap = 2
+        label_width = 120
+        left_value_width = 46
+        verification_wrap_width = 96
+        qr_url = datos.get("qr_url")
+        qr_image = self.build_qr_image(qr_url)
+        qr_size = 78
+        qr_col_x = page_width - qr_size - 55
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -135,9 +175,7 @@ class ElectronicSign:
             if firmante["cargo"] != "":
                 cargo = firmante["cargo"] + ": "
             text = cargo + firmante["nombre"] + ". " + firmante["tipoId"] + " " + firmante["identificacion"]
-            text = "\n".join(wrap(text, 60))
-            signPageSize += text.count("\n")
-            wraped_firmantes.append(text)
+            wraped_firmantes.append("\n".join(wrap(text, left_value_width)))
 
         wraped_representantes = []
         for representante in datos["representantes"]:
@@ -145,140 +183,130 @@ class ElectronicSign:
             if representante["cargo"] != "":
                 cargo = representante["cargo"] + ": "
             text = cargo + representante["nombre"] + ". " + representante["tipoId"] + " " + representante["identificacion"]
-            text = "\n".join(wrap(text, 60))
-            text.count("\n")
-            signPageSize += text.count("\n")
-            wraped_representantes.append(text)
-        if etapa==3:
-            firma = datos['firma']
+            wraped_representantes.append("\n".join(wrap(text, left_value_width)))
 
-            wraped_firma = "\n".join(wrap(firma, 60))
+        firma = datos.get("firma", "")
+        wrapped_tipo_documento = "\n".join(wrap(datos.get("tipo_documento", ""), left_value_width))
+        wrapped_codigo = "\n".join(wrap(firma, left_value_width))
+        wrapped_link_ver = "\n".join(wrap(link_verificacion, verification_wrap_width))
+        wrapped_link_ver_externo = "\n".join(wrap(link_verificacion_externa, verification_wrap_width))
 
-            signPageSize += wraped_firma.count("\n")
-        signPageSize *= 10
+        rows = []
+        if len(datos["firmantes"]) > 1:
+            rows.append(("Firmantes:", "\n".join(wraped_firmantes)))
+        elif len(datos["firmantes"]) == 1:
+            rows.append(("Firmante:", wraped_firmantes[0]))
 
+        if len(datos["representantes"]) > 1:
+            rows.append(("Representantes:", "\n".join(wraped_representantes)))
+        elif len(datos["representantes"]) == 1:
+            rows.append(("Representante:", wraped_representantes[0]))
 
+        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
+        rows.append(("Fecha y hora:", fechaHoraActual))
+
+        if etapa == 3:
+            rows.append(("Tipo de documento:", wrapped_tipo_documento))
+            rows.append(("Código de verificación:", wrapped_codigo))
+
+        rows_height = 0
+        for label, value in rows:
+            label_lines = label.count("\n") + 1
+            value_lines = value.count("\n") + 1 if value else 1
+            rows_height += max(label_lines, value_lines) * line_height + row_gap
+
+        verification_lines = [
+            "Para verificar la autenticidad de la presente firma electrónica",
+            "consulte el código suministrado en el sitio web indicado:",
+            *wrapped_link_ver.split("\n"),
+            *wrapped_link_ver_externo.split("\n"),
+        ]
+        if qr_url:
+            verification_lines.append("Acceso seguro al documento original: escanee el QR.")
+
+        verification_height = len(verification_lines) * line_height
+        lower_block_height = verification_height
+
+        title_height = 10 if etapa == 1 else 0
+        signPageSize = title_height + section_gap + rows_height + section_gap + lower_block_height + 8
+        if qr_image:
+            signPageSize = max(signPageSize, qr_size + 24)
 
         if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
-
+            y = page_height - self.YHEEADER
 
         c = canvas.Canvas(archivoFirma)
-        # Create the signPdf from an image
-        # c = canvas.Canvas('signPdf.pdf')
-
-        # Draw the image at x, y. I positioned the x,y to be where i like here
-        # c.drawImage('test.png', 15, 720)
         pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
         pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
 
+        cursor_y = y
         if etapa == 1:
             c.setFont('VeraBd', 10)
-            y = y - 10
-            c.drawString(x + 20, y,"Firmado Digitalmente")
+            cursor_y = cursor_y - 10
+            c.drawString(x + 20, cursor_y, "Firmado Digitalmente")
 
-        c.setFont('Vera', 8)
-        t = c.beginText()
+        cursor_y = cursor_y - 12
 
-        if len(datos["firmantes"]) > 1:
-            t.setFont('VeraBd', 8)
-            y = y - 15
-            t.setTextOrigin(x, y)
-            t.textLine("Firmantes:")
-        elif len(datos["firmantes"]) == 1:
-            t.setFont('VeraBd', 8)
-            y = y - 15
-            t.setTextOrigin(x, y)
-            t.textLine("Firmante:")
+        for label, value in rows:
+            label_lines = label.split("\n")
+            value_lines = value.split("\n") if value else [""]
+            row_lines = max(len(label_lines), len(value_lines))
+            row_top_y = cursor_y
 
-        count = 1
-        t.setFont('Vera', 8)
-        for firmante in wraped_firmantes:
-            if(count > 1):
-                y = y - 10
-            t.setTextOrigin(x+140,y)
-            t.textLines(firmante)
-            y = y-firmante.count("\n")*10
-            count += 1
+            label_text = c.beginText()
+            label_text.setFont('VeraBd', 8)
+            label_text.setLeading(line_height)
+            label_text.setTextOrigin(x, row_top_y)
+            for line in label_lines:
+                label_text.textLine(line)
+            c.drawText(label_text)
 
-        if len(wraped_firmantes):
-            y = y - 5
+            value_text = c.beginText()
+            value_text.setFont('Vera', 8)
+            value_text.setLeading(line_height)
+            value_text.setTextOrigin(x + label_width, row_top_y)
+            for line in value_lines:
+                value_text.textLine(line)
+            c.drawText(value_text)
 
-        if len(datos["representantes"]) > 1:
-            t.setFont('VeraBd', 8)
-            y = y - 5
-            t.setTextOrigin(x, y)
-            t.textLine("Representantes:")
-        elif len(datos["representantes"]) == 1:
-            t.setFont('VeraBd', 8)
-            y = y - 5
-            t.setTextOrigin(x, y)
-            t.textLine("Representante:")
+            cursor_y = row_top_y - (row_lines * line_height) - row_gap
 
-        count = 1
-        t.setFont('Vera', 8)
-        for representante in wraped_representantes:
-            if(count > 1):
-                y = y - 10
-            t.setTextOrigin(x+140,y)
-            t.textLines(representante)
-            y = y-representante.count("\n")*10
-            count += 1
+        cursor_y = cursor_y - section_gap
+        verification_top_y = cursor_y
 
-        if len(wraped_representantes):
-            y = y - 5
-        y = y - 5
+        verification_title = c.beginText()
+        verification_title.setFont('VeraBd', 8)
+        verification_title.setLeading(line_height)
+        verification_title.setTextOrigin(x, verification_top_y)
+        verification_title.textLine("Para verificar la autenticidad de la presente firma electrónica")
+        verification_title.textLine("consulte el código suministrado en el sitio web indicado:")
+        c.drawText(verification_title)
 
-        t.setFont('VeraBd', 8)
-        if etapa==3:
-            y = y - wraped_firma.count("\n")*10
-        t.setTextOrigin(x, y)
-        t.textLine("Fecha y hora:")
-        t.setFont('Vera', 8)
-        #fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
-        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
-        t.setTextOrigin(x+140, y)
-        t.textLine(fechaHoraActual)
+        verification_body_y = verification_top_y - (2 * line_height)
+        verification_body = c.beginText()
+        verification_body.setFont('Vera', 8)
+        verification_body.setLeading(line_height)
+        verification_body.setTextOrigin(x, verification_body_y)
+        for line in wrapped_link_ver.split("\n"):
+            verification_body.textLine(line)
+        for line in wrapped_link_ver_externo.split("\n"):
+            verification_body.textLine(line)
+        if qr_url:
+            verification_body.textLine("Acceso seguro al documento original: escanee el QR.")
+        c.drawText(verification_body)
 
-        if etapa == 3:
-            t.setFont('VeraBd', 8)
-            y = y - 15
-            t.setTextOrigin(x, y)
-            t.textLine("Tipo de documento:")
-            t.setFont('Vera', 8)
-            t.setTextOrigin(x+140, y)
-            t.textLine(datos["tipo_documento"])
+        if qr_image:
+            qr_draw_y = max(self.YFOOTER + 7, verification_top_y - qr_size + (7 * line_height))
+            c.drawImage(
+                qr_image,
+                qr_col_x,
+                qr_draw_y,
+                width=qr_size,
+                height=qr_size,
+                preserveAspectRatio=True,
+                mask="auto"
+            )
 
-            y = y - 0
-
-            t.setFont('VeraBd', 8)
-            y = y - 10
-            t.setTextOrigin(x, y)
-            t.textLine("Código de verificación:")
-            t.setTextOrigin(x + 140, y)
-            t.setFont('Vera', 8)
-            t.textLine(firma)
-
-            y = y - 5
-
-            #Enlace verificacion
-            y = y - 10
-            t.setFont('VeraBd', 8)
-            y = y - 10
-            t.setTextOrigin(x, y)
-            t.textLine("Para verificar la autenticidad de la presente firma electrónica")
-            t.textLine("consulte el código suministrado en el sitio web indicado:")
-            t.textLine(" ")
-            y= y - 20
-            link_ver = link_verificacion
-            link_ver_externo = link_verificacion_externa
-            t.setFont("Vera", 8)
-            t.setTextOrigin(x, y)
-            t.textLine(link_ver)
-            t.textLine(link_ver_externo)
-            #Fin enlace
-
-        c.drawText(t)
         c.showPage()
         c.save()
 
@@ -304,8 +332,8 @@ class ElectronicSign:
             String : id y firma encriptados
             Boolean : True si se puede estampar en la ultima pagina, False si se debe crear una nueva pagina
         """
-        link_verificacion = "Verificación interna: " + os.environ['VERIFICACION']
-        link_verificacion_externa = "Verificación para externos: " + os.environ['VERIFICACION_EXTERNA']
+        link_verificacion = "Verificación interna: " + get_verificacion_url()
+        link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
         y = yPosition

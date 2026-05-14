@@ -1,13 +1,12 @@
-import os
 from flask import Blueprint, request
 from flask_restx import Api, Resource
 from flask_cors import CORS, cross_origin
 from controllers import healthCheck, controllerFirma
 from models.model_params import define_parameters
-from conf.conf import api_cors_config
+from conf.conf import ENV, api_cors_config
 
 api_bp = Blueprint("api_bp", __name__, url_prefix="/api")
-CORS(api_bp)
+CORS(api_bp, resources={r"/*": api_cors_config})
 
 @api_bp.route("", methods=["GET"])
 @api_bp.route("/", methods=["GET"])
@@ -19,7 +18,7 @@ docDocumentacion = Api(
     version="1.0",
     title="firma_electronica_mid",
     description="API para la firma electrónica de documentos",
-    doc="/swagger" if os.environ['ENV'] == "dev" else None
+    doc="/swagger" if ENV == "dev" else None
 )
 
 ns_v1 = docDocumentacion.namespace(
@@ -33,7 +32,7 @@ model_params = define_parameters(docDocumentacion)
 @ns_v1.route("/firma_electronica")
 class FirmaElectronicaResource(Resource):
 
-    @ns_v1.expect(model_params["request_parser"])
+    @ns_v1.expect(model_params["upload_model"], validate=False)
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -55,7 +54,7 @@ class FirmaElectronicaResource(Resource):
 @ns_v1.route("/verify")
 class VerifyFirmaResource(Resource):
 
-    @ns_v1.expect(model_params["request_parser"])
+    @ns_v1.expect(model_params["firma_model"], validate=True)
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -74,10 +73,46 @@ class VerifyFirmaResource(Resource):
         body = request.get_json()
         return controllerFirma.postVerify(body)
 
+@ns_v1.route("/qr")
+class SecureQrResource(Resource):
+
+    @ns_v1.expect(model_params["qr_token_model"], validate=True)
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            Redirige al cliente de verificación a partir de un token QR firmado
+        """
+        body = request.get_json()
+        return controllerFirma.resolveSecureQr(body)
+
+@ns_v1.route("/qr/resolve")
+class SecureQrResolveResource(Resource):
+
+    @ns_v1.expect(model_params["qr_token_model"], validate=True)
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            Resuelve un token QR validado y retorna datos del documento para el cliente
+        """
+        body = request.get_json()
+        return controllerFirma.resolveSecureQrData(body)
+
+@ns_v1.route("/qr/file")
+class SecureQrFileResource(Resource):
+
+    @ns_v1.expect(model_params["qr_token_model"], validate=True)
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            Retorna el archivo del documento validado a partir del token QR
+        """
+        body = request.get_json()
+        return controllerFirma.resolveSecureQrFile(body)
+
 @ns_v1.route("/firma_multiple")
 class FirmaMultipleResource(Resource):
 
-    @ns_v1.expect(model_params["request_parser"])
+    @ns_v1.expect(model_params["firma_multiple_model"], validate=False)
     @cross_origin(**api_cors_config)
     def post(self):
         """
@@ -98,4 +133,3 @@ class FirmaMultipleResource(Resource):
 
 def addRutas(app):
     app.register_blueprint(api_bp)
-

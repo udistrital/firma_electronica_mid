@@ -30,7 +30,9 @@ def define_parameters(api):
         'nombre': fields.String,
         'metadatos': fields.Nested(metadata_doc_crud_model),
         'firmantes': fields.List(fields.Nested(firmantes_model)),
-        'representantes': fields.List(fields.Nested(representantes_model)),
+        'representantes': fields.Raw(
+            description='Acepta lista de representantes o objeto vacio {} para compatibilidad'
+        ),
         'descripcion': fields.String,
         'file': fields.String
     })]
@@ -40,7 +42,9 @@ def define_parameters(api):
         'nombre': fields.String,
         'metadatos': fields.Nested(metadata_doc_crud_model),
         'firmantes': fields.List(fields.Nested(firmantes_model)),
-        'representantes': fields.List(fields.Nested(representantes_model)),
+        'representantes': fields.Raw(
+            description='Acepta lista de representantes o objeto vacio {} para compatibilidad'
+        ),
         'descripcion': fields.String,
         'etapa_firma': fields.Integer,
         'file': fields.String
@@ -51,5 +55,9 @@ def define_parameters(api):
         'fileUp': fields.String,
         'urlFileUp': fields.String,
     })]
+
+    qr_token_model = api.model('qr_token_request', {
+        'token': fields.String(required=True),
+    })
     
     return {k: v for k, v in vars().items() if not k.startswith('__')}

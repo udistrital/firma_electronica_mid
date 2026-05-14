@@ -29,6 +29,7 @@ COPY conf/ /conf/
 COPY controllers/ /controllers/
 COPY models/ /models/
 COPY routers/ /routers/
+COPY services/ /services/
 COPY api.py /api.py
 
 ENTRYPOINT ["/entrypoint.sh"]
