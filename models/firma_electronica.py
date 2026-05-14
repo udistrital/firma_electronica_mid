@@ -156,18 +156,16 @@ class ElectronicSign:
         x = 80
         y = yPosition
         line_height = 9
-        label_offset = 125
-        text_wrap_width = 60
-        verification_wrap_width = 42
-        signPageSize = 3 + len(datos["firmantes"]) + len(datos["representantes"]) + 2.5 + 5
+        section_gap = 6
+        row_gap = 3
+        label_width = 120
+        left_col_width = 310
+        left_value_width = 44
+        verification_wrap_width = 44
         qr_url = datos.get("qr_url")
         qr_image = self.build_qr_image(qr_url)
-        qr_size = 90
-        qr_draw_x = x + 405
-        qr_reserved_space = 96 if qr_image else 0
-        qr_draw_y = None
-        wrapped_link_ver = ""
-        wrapped_link_ver_externo = ""
+        qr_size = 92
+        qr_col_x = x + left_col_width + 22
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
@@ -175,9 +173,7 @@ class ElectronicSign:
             if firmante["cargo"] != "":
                 cargo = firmante["cargo"] + ": "
             text = cargo + firmante["nombre"] + ". " + firmante["tipoId"] + " " + firmante["identificacion"]
-            text = "\n".join(wrap(text, text_wrap_width))
-            signPageSize += text.count("\n")
-            wraped_firmantes.append(text)
+            wraped_firmantes.append("\n".join(wrap(text, left_value_width)))
 
         wraped_representantes = []
         for representante in datos["representantes"]:
@@ -185,163 +181,128 @@ class ElectronicSign:
             if representante["cargo"] != "":
                 cargo = representante["cargo"] + ": "
             text = cargo + representante["nombre"] + ". " + representante["tipoId"] + " " + representante["identificacion"]
-            text = "\n".join(wrap(text, text_wrap_width))
-            text.count("\n")
-            signPageSize += text.count("\n")
-            wraped_representantes.append(text)
-        if etapa==3:
-            firma = datos['firma']
+            wraped_representantes.append("\n".join(wrap(text, left_value_width)))
 
-            wraped_firma = "\n".join(wrap(firma, text_wrap_width))
+        firma = datos.get("firma", "")
+        wrapped_tipo_documento = "\n".join(wrap(datos.get("tipo_documento", ""), left_value_width))
+        wrapped_codigo = "\n".join(wrap(firma, left_value_width))
+        wrapped_link_ver = "\n".join(wrap(link_verificacion, verification_wrap_width))
+        wrapped_link_ver_externo = "\n".join(wrap(link_verificacion_externa, verification_wrap_width))
 
-            signPageSize += wraped_firma.count("\n")
-            wrapped_link_ver = "\n".join(wrap(link_verificacion, verification_wrap_width))
-            wrapped_link_ver_externo = "\n".join(wrap(link_verificacion_externa, verification_wrap_width))
-        signPageSize *= line_height
-        if etapa == 3 and qr_image:
-            verification_left_lines = (
-                2
-                + 1
-                + wrapped_link_ver.count("\n") + 1
-                + wrapped_link_ver_externo.count("\n") + 1
-                + (1 if qr_url else 0)
-            )
-            qr_reserved_space = max(qr_reserved_space, (verification_left_lines * line_height) + 10, qr_size + 10)
-        signPageSize += qr_reserved_space
+        rows = []
+        if len(datos["firmantes"]) > 1:
+            rows.append(("Firmantes:", "\n".join(wraped_firmantes)))
+        elif len(datos["firmantes"]) == 1:
+            rows.append(("Firmante:", wraped_firmantes[0]))
 
+        if len(datos["representantes"]) > 1:
+            rows.append(("Representantes:", "\n".join(wraped_representantes)))
+        elif len(datos["representantes"]) == 1:
+            rows.append(("Representante:", wraped_representantes[0]))
 
+        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
+        rows.append(("Fecha y hora:", fechaHoraActual))
+
+        if etapa == 3:
+            rows.append(("Tipo de documento:", wrapped_tipo_documento))
+            rows.append(("Código de verificación:", wrapped_codigo))
+
+        rows_height = 0
+        for label, value in rows:
+            label_lines = label.count("\n") + 1
+            value_lines = value.count("\n") + 1 if value else 1
+            rows_height += max(label_lines, value_lines) * line_height + row_gap
+
+        verification_lines = [
+            "Para verificar la autenticidad de la presente firma electrónica",
+            "consulte el código suministrado en el sitio web indicado:",
+            *wrapped_link_ver.split("\n"),
+            *wrapped_link_ver_externo.split("\n"),
+        ]
+        if qr_url:
+            verification_lines.append("Acceso seguro al documento original: escanee el QR.")
+
+        verification_height = len(verification_lines) * line_height
+        lower_block_height = max(verification_height, qr_size if qr_image else 0)
+
+        title_height = 12 if etapa == 1 else 0
+        signPageSize = title_height + section_gap + rows_height + section_gap + lower_block_height + 12
 
         if(yPosition - self.YFOOTER < signPageSize):
             y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
 
-
         c = canvas.Canvas(archivoFirma)
-        # Create the signPdf from an image
-        # c = canvas.Canvas('signPdf.pdf')
-
-        # Draw the image at x, y. I positioned the x,y to be where i like here
-        # c.drawImage('test.png', 15, 720)
         pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
         pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
 
+        cursor_y = y
         if etapa == 1:
             c.setFont('VeraBd', 10)
-            y = y - 10
-            c.drawString(x + 20, y,"Firmado Digitalmente")
+            cursor_y = cursor_y - 10
+            c.drawString(x + 20, cursor_y, "Firmado Digitalmente")
 
-        c.setFont('Vera', 8)
-        t = c.beginText()
-        t.setLeading(line_height)
+        cursor_y = cursor_y - 14
 
-        if len(datos["firmantes"]) > 1:
-            t.setFont('VeraBd', 8)
-            y = y - 12
-            t.setTextOrigin(x, y)
-            t.textLine("Firmantes:")
-        elif len(datos["firmantes"]) == 1:
-            t.setFont('VeraBd', 8)
-            y = y - 12
-            t.setTextOrigin(x, y)
-            t.textLine("Firmante:")
+        for label, value in rows:
+            label_lines = label.split("\n")
+            value_lines = value.split("\n") if value else [""]
+            row_lines = max(len(label_lines), len(value_lines))
+            row_top_y = cursor_y
 
-        count = 1
-        t.setFont('Vera', 8)
-        for firmante in wraped_firmantes:
-            if(count > 1):
-                y = y - line_height
-            t.setTextOrigin(x + label_offset, y)
-            t.textLines(firmante)
-            y = y - firmante.count("\n") * line_height
-            count += 1
+            label_text = c.beginText()
+            label_text.setFont('VeraBd', 8)
+            label_text.setLeading(line_height)
+            label_text.setTextOrigin(x, row_top_y)
+            for line in label_lines:
+                label_text.textLine(line)
+            c.drawText(label_text)
 
-        if len(wraped_firmantes):
-            y = y - 3
+            value_text = c.beginText()
+            value_text.setFont('Vera', 8)
+            value_text.setLeading(line_height)
+            value_text.setTextOrigin(x + label_width, row_top_y)
+            for line in value_lines:
+                value_text.textLine(line)
+            c.drawText(value_text)
 
-        if len(datos["representantes"]) > 1:
-            t.setFont('VeraBd', 8)
-            y = y - 4
-            t.setTextOrigin(x, y)
-            t.textLine("Representantes:")
-        elif len(datos["representantes"]) == 1:
-            t.setFont('VeraBd', 8)
-            y = y - 4
-            t.setTextOrigin(x, y)
-            t.textLine("Representante:")
+            cursor_y = row_top_y - (row_lines * line_height) - row_gap
 
-        count = 1
-        t.setFont('Vera', 8)
-        for representante in wraped_representantes:
-            if(count > 1):
-                y = y - line_height
-            t.setTextOrigin(x + label_offset, y)
-            t.textLines(representante)
-            y = y - representante.count("\n") * line_height
-            count += 1
+        cursor_y = cursor_y - section_gap
+        verification_top_y = cursor_y
 
-        if len(wraped_representantes):
-            y = y - 3
-        y = y - 4
+        verification_title = c.beginText()
+        verification_title.setFont('VeraBd', 8)
+        verification_title.setLeading(line_height)
+        verification_title.setTextOrigin(x, verification_top_y)
+        verification_title.textLine("Para verificar la autenticidad de la presente firma electrónica")
+        verification_title.textLine("consulte el código suministrado en el sitio web indicado:")
+        c.drawText(verification_title)
 
-        t.setFont('VeraBd', 8)
-        if etapa==3:
-            y = y - wraped_firma.count("\n") * line_height
-        t.setTextOrigin(x, y)
-        t.textLine("Fecha y hora:")
-        t.setFont('Vera', 8)
-        #fechaHoraActual = time.strftime("%x") + " " + time.strftime("%X")
-        fechaHoraActual = time.strftime("%d/%m/%y %H:%M:%S")
-        t.setTextOrigin(x+140, y)
-        t.textLine(fechaHoraActual)
+        verification_body_y = verification_top_y - (2 * line_height)
+        verification_body = c.beginText()
+        verification_body.setFont('Vera', 8)
+        verification_body.setLeading(line_height)
+        verification_body.setTextOrigin(x, verification_body_y)
+        for line in wrapped_link_ver.split("\n"):
+            verification_body.textLine(line)
+        for line in wrapped_link_ver_externo.split("\n"):
+            verification_body.textLine(line)
+        if qr_url:
+            verification_body.textLine("Acceso seguro al documento original: escanee el QR.")
+        c.drawText(verification_body)
 
-        if etapa == 3:
-            t.setFont('VeraBd', 8)
-            y = y - 12
-            t.setTextOrigin(x, y)
-            t.textLine("Tipo de documento:")
-            wrapped_tipo_documento = "\n".join(wrap(datos["tipo_documento"], text_wrap_width))
-            t.setFont('Vera', 8)
-            t.setTextOrigin(x + label_offset, y)
-            t.textLines(wrapped_tipo_documento)
-            y = y - wrapped_tipo_documento.count("\n") * line_height
-
-            t.setFont('VeraBd', 8)
-            y = y - 9
-            t.setTextOrigin(x, y)
-            t.textLine("Código de verificación:")
-            t.setTextOrigin(x + label_offset, y)
-            t.setFont('Vera', 8)
-            wrapped_codigo = "\n".join(wrap(firma, text_wrap_width))
-            t.textLines(wrapped_codigo)
-            y = y - wrapped_codigo.count("\n") * line_height
-
-            y = y - 3
-
-            #Enlace verificacion
-            t.setFont('VeraBd', 8)
-            y = y - 8
-            qr_anchor_y = y
-            t.setTextOrigin(x, y)
-            t.textLine("Para verificar la autenticidad de la presente firma electrónica")
-            t.textLine("consulte el código suministrado en el sitio web indicado:")
-            y = y - 14
-            t.setFont("Vera", 8)
-            t.setTextOrigin(x, y)
-            t.textLines(wrapped_link_ver)
-            y = y - wrapped_link_ver.count("\n") * line_height
-            t.setTextOrigin(x, y - line_height)
-            t.textLines(wrapped_link_ver_externo)
-            y = y - line_height - wrapped_link_ver_externo.count("\n") * line_height
-            if qr_url:
-                y = y - 10
-                t.setTextOrigin(x, y)
-                t.textLine("Acceso seguro al documento original: escanee el QR.")
-                qr_draw_y = y - qr_size + 14
-            #Fin enlace
-
-        c.drawText(t)
         if qr_image:
-            qr_y = qr_draw_y if qr_draw_y is not None else max(25, y - 90)
-            c.drawImage(qr_image, qr_draw_x, qr_y, width=qr_size, height=qr_size, preserveAspectRatio=True, mask="auto")
+            qr_draw_y = verification_top_y - qr_size + line_height
+            c.drawImage(
+                qr_image,
+                qr_col_x,
+                qr_draw_y,
+                width=qr_size,
+                height=qr_size,
+                preserveAspectRatio=True,
+                mask="auto"
+            )
+
         c.showPage()
         c.save()
 
