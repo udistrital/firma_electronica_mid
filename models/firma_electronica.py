@@ -167,7 +167,7 @@ class ElectronicSign:
         qr_url = datos.get("qr_url")
         qr_image = self.build_qr_image(qr_url)
         qr_size = 78
-        qr_col_x = page_width - qr_size - 35
+        qr_col_x = page_width - qr_size - 55
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
