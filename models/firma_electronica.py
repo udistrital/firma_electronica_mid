@@ -296,7 +296,7 @@ class ElectronicSign:
         c.drawText(verification_body)
 
         if qr_image:
-            qr_draw_y = max(self.YFOOTER + 6, verification_top_y - qr_size - line_height)
+            qr_draw_y = max(self.YFOOTER + 6, verification_top_y - qr_size + (2 * line_height))
             c.drawImage(
                 qr_image,
                 qr_col_x,
