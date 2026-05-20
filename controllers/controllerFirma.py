@@ -77,6 +77,19 @@ def _normalize_verify_upload_fields(item):
     )
 
 
+def _decode_json_response(response, service_name):
+    content = response.content.decode("utf-8", errors="replace")
+    preview = content.strip().replace("\n", " ")[:200]
+    if response.status_code != 200:
+        raise ValueError(f"{service_name} responded with status {response.status_code}: {preview}")
+    if preview == "":
+        raise ValueError(f"{service_name} returned an empty response")
+    try:
+        return json.loads(content.replace("'", '"'))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{service_name} returned invalid JSON: {preview}") from exc
+
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -268,15 +281,13 @@ def postVerify(data):
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(data[i]["firma"]))
-            if resFirma.status_code != 200:
-                return Response(resFirma, resFirma.status_code, mimetype='application/json')
-            responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
+            responseGetFirma = _decode_json_response(resFirma, "documentos_crud firma_electronica")
             if responseGetFirma["DocumentoId"]["Enlace"]=="":
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
             elif responseGetFirma["DocumentoId"]["Enlace"]!="":
-                responseNuxeo = requests.get(get_gestor_documental_url()+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
-                responseNuxeo = json.loads(responseNuxeo.decode('utf8').replace("'", '"'))
+                resNuxeo = requests.get(get_gestor_documental_url()+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"]))
+                responseNuxeo = _decode_json_response(resNuxeo, "gestor_documental document")
                 #INICIO COMPARACIÓN
                 llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
                 llavePublicaFirmaBD = llavesFirmaBD["llave_publica"]
