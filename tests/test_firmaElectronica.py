@@ -372,6 +372,24 @@ def test_normalize_verify_upload_fields(payload, expected):
     _normalize_verify_upload_fields(payload)
     assert payload == expected
 
+@patch('controllers.controllerFirma.requests.get')
+def test_postVerify_returns_clear_error_when_dependency_response_is_empty(mock_get):
+    mock_response = Mock()
+    mock_response.content = b'\n'
+    mock_response.status_code = 200
+    mock_get.return_value = mock_response
+
+    response = postVerify([
+        {
+            "firma": "firma-id",
+            "fileUp": {},
+            "urlFileUp": {}
+        }
+    ])
+
+    assert response.status_code == 500
+    assert "documentos_crud firma_electronica returned an empty response" in response.get_data(as_text=True)
+
 @patch('controllers.controllerFirma.postVerify')
 def test_falloPostVerify(mock_postVerify):
     mock_postVerify.return_value.status_code = 400
