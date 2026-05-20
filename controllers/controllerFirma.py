@@ -39,6 +39,57 @@ def _normalize_representantes(data):
         raise ValueError("400: invalid representantes field")
 
 
+def _normalize_upload_field(value, preferred_keys=None):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="ignore")
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            normalized_item = _normalize_upload_field(item, preferred_keys)
+            if normalized_item != "":
+                return normalized_item
+        return ""
+    if isinstance(value, dict):
+        if len(value) == 0:
+            return ""
+        for key in preferred_keys or []:
+            if key in value:
+                normalized_item = _normalize_upload_field(value[key], preferred_keys)
+                if normalized_item != "":
+                    return normalized_item
+        if len(value) == 1:
+            return _normalize_upload_field(next(iter(value.values())), preferred_keys)
+        return ""
+    return str(value)
+
+
+def _normalize_verify_upload_fields(item):
+    item["fileUp"] = _normalize_upload_field(
+        item.get("fileUp", ""),
+        ("fileUp", "file", "base64", "base64File", "documento", "archivo")
+    )
+    item["urlFileUp"] = _normalize_upload_field(
+        item.get("urlFileUp", ""),
+        ("urlFileUp", "url", "href", "link", "enlace")
+    )
+
+
+def _decode_json_response(response, service_name):
+    content = response.content.decode("utf-8", errors="replace")
+    preview = content.strip().replace("\n", " ")[:200]
+    if response.status_code != 200:
+        raise ValueError(f"{service_name} responded with status {response.status_code}: {preview}")
+    if preview == "":
+        raise ValueError(f"{service_name} returned an empty response")
+    try:
+        return json.loads(content.replace("'", '"'))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{service_name} returned invalid JSON: {preview}") from exc
+
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -225,25 +276,24 @@ def postVerify(data):
     response_array = []
     try:
         for i in range(len(data)):
+            _normalize_verify_upload_fields(data[i])
             if str(data[i]["firma"]) == "":
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
             resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(data[i]["firma"]))
-            if resFirma.status_code != 200:
-                return Response(resFirma, resFirma.status_code, mimetype='application/json')
-            responseGetFirma = json.loads(resFirma.content.decode('utf8').replace("'", '"'))
+            responseGetFirma = _decode_json_response(resFirma, "documentos_crud firma_electronica")
             if responseGetFirma["DocumentoId"]["Enlace"]=="":
                 error_dict = {'Message': "document not signed", 'code': '404'}
                 return Response(json.dumps(error_dict), status=404, mimetype='application/json')
             elif responseGetFirma["DocumentoId"]["Enlace"]!="":
-                responseNuxeo = requests.get(get_gestor_documental_url()+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"])).content
-                responseNuxeo = json.loads(responseNuxeo.decode('utf8').replace("'", '"'))
+                resNuxeo = requests.get(get_gestor_documental_url()+'document/'+str(responseGetFirma["DocumentoId"]["Enlace"]))
+                responseNuxeo = _decode_json_response(resNuxeo, "gestor_documental document")
                 #INICIO COMPARACIÓN
                 llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
                 llavePublicaFirmaBD = llavesFirmaBD["llave_publica"]
                 firmaBD = llavesFirmaBD["firma"]
-                base64User = str (data[i]["fileUp"])
-                urlFileUp = str (data[0]["urlFileUp"])
+                base64User = data[i]["fileUp"]
+                urlFileUp = data[i]["urlFileUp"]
                 fileEqual = True #Por defecto true ya que de ser así sólo se muestra un Doc
                 public_key = load_pem_public_key(base64.b64decode(llavePublicaFirmaBD))
                 if base64User != "":
