@@ -180,9 +180,9 @@ definitions:
       firma:
         type: string
       fileUp:
-        type: string
+        description: Acepta string, lista u objeto para compatibilidad con consumidores
       urlFileUp:
-        type: string
+        description: Acepta string, lista u objeto para compatibilidad con consumidores
     type: object
   qr_token_request:
     properties:
