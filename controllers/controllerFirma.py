@@ -39,6 +39,44 @@ def _normalize_representantes(data):
         raise ValueError("400: invalid representantes field")
 
 
+def _normalize_upload_field(value, preferred_keys=None):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="ignore")
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            normalized_item = _normalize_upload_field(item, preferred_keys)
+            if normalized_item != "":
+                return normalized_item
+        return ""
+    if isinstance(value, dict):
+        if len(value) == 0:
+            return ""
+        for key in preferred_keys or []:
+            if key in value:
+                normalized_item = _normalize_upload_field(value[key], preferred_keys)
+                if normalized_item != "":
+                    return normalized_item
+        if len(value) == 1:
+            return _normalize_upload_field(next(iter(value.values())), preferred_keys)
+        return ""
+    return str(value)
+
+
+def _normalize_verify_upload_fields(item):
+    item["fileUp"] = _normalize_upload_field(
+        item.get("fileUp", ""),
+        ("fileUp", "file", "base64", "base64File", "documento", "archivo")
+    )
+    item["urlFileUp"] = _normalize_upload_field(
+        item.get("urlFileUp", ""),
+        ("urlFileUp", "url", "href", "link", "enlace")
+    )
+
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -225,6 +263,7 @@ def postVerify(data):
     response_array = []
     try:
         for i in range(len(data)):
+            _normalize_verify_upload_fields(data[i])
             if str(data[i]["firma"]) == "":
                 error_dict = {'Status': "Field firma is required", 'Code': '400'}
                 return Response(json.dumps(error_dict), status=400, mimetype='application/json')
@@ -242,8 +281,8 @@ def postVerify(data):
                 llavesFirmaBD = json.loads(responseGetFirma["Llaves"])
                 llavePublicaFirmaBD = llavesFirmaBD["llave_publica"]
                 firmaBD = llavesFirmaBD["firma"]
-                base64User = str (data[i]["fileUp"])
-                urlFileUp = str (data[0]["urlFileUp"])
+                base64User = data[i]["fileUp"]
+                urlFileUp = data[i]["urlFileUp"]
                 fileEqual = True #Por defecto true ya que de ser así sólo se muestra un Doc
                 public_key = load_pem_public_key(base64.b64decode(llavePublicaFirmaBD))
                 if base64User != "":
