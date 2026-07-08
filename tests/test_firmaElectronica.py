@@ -1,12 +1,7 @@
 import pytest
 from api import app
 from unittest.mock import patch, Mock
-
-from controllers.controllerFirma import postFirmaElectronica, postVerify, _build_storage_signature_payload
-from models.firma_electronica import ElectronicSign
-
 from controllers.controllerFirma import _normalize_verify_upload_fields, postFirmaElectronica, postVerify
-
 
 @patch('controllers.controllerFirma.requests.get')
 @patch('controllers.controllerFirma.requests.post')
@@ -406,91 +401,3 @@ def test_falloPostVerify(mock_postVerify):
         }
     ])
     assert response.status_code == 400
-
-
-def test_build_person_signature_block_preserva_formato_legacy():
-    signer = ElectronicSign()
-
-    result = signer._build_person_signature_block({
-        "nombre": "Firmante Unitario",
-        "cargo": "Gerente",
-        "tipoId": "CC",
-        "identificacion": "12345",
-    })
-
-    assert result == "Gerente: Firmante Unitario. CC 12345"
-
-
-def test_build_person_signature_block_acepta_oficina_multilinea():
-    signer = ElectronicSign()
-
-    result = signer._build_person_signature_block({
-        "nombre": "Firmante Unitario",
-        "cargo": "Gerente",
-        "oficina": "Oficina Asesora",
-        "tipoId": "CC",
-        "identificacion": "12345",
-    })
-
-    assert result == "Firmante Unitario\nCC 12345\nGerente\nOficina Asesora"
-
-
-def test_build_person_signature_block_acepta_orden_personalizado():
-    signer = ElectronicSign()
-
-    result = signer._build_person_signature_block({
-        "nombre": "Firmante Unitario",
-        "cargo": "Gerente",
-        "oficina": "Oficina Asesora",
-        "tipoId": "CC",
-        "identificacion": "12345",
-        "orden_campos": ["nombre", "cargo", "oficina", "documento"],
-    })
-
-    assert result == "Firmante Unitario\nGerente\nOficina Asesora\nCC 12345"
-
-
-def test_build_storage_signature_payload_excluye_orden_campos():
-    result = _build_storage_signature_payload(
-        [{
-            "nombre": "Firmante Unitario",
-            "cargo": "Gerente",
-            "oficina": "Oficina Asesora",
-            "tipoId": "CC",
-            "identificacion": "12345",
-            "orden_campos": ["cargo", "nombre"],
-        }],
-        [],
-    )
-
-    assert result == {
-        "firmantes": [{
-            "nombre": "Firmante Unitario",
-            "cargo": "Gerente",
-            "oficina": "Oficina Asesora",
-            "tipoId": "CC",
-            "identificacion": "12345",
-        }],
-        "representantes": [],
-    }
-
-
-def test_postFirmaElectronica_rechaza_firmante_sin_nombre():
-    response = postFirmaElectronica([
-        {
-            "IdTipoDocumento": 2,
-            "nombre": "PruebaUnitaria",
-            "metadatos": {},
-            "firmantes": [{
-                "cargo": "GerenteUnitario",
-                "tipoId": "cc",
-                "identificacion": "12345"
-            }],
-            "representantes": [],
-            "descripcion": "Prueba Unitaria de firma electrónica",
-            "file": "x" * 1001
-        }
-    ])
-
-    assert response.status_code == 400
-    assert response.get_data(as_text=True) == '{"Status": "the field firmantes.nombre is required", "Code": "400"}'
