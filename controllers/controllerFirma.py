@@ -9,7 +9,7 @@ from services.qr_security import build_qr_url, validate_qr_token
 from conf.conf import get_documentos_crud_url, get_gestor_documental_url, get_qr_base_url
 import uuid
 
-
+# qr token
 def _get_qr_token(data):
     if not isinstance(data, dict):
         raise ValueError("Invalid request body")
