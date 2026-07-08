@@ -54,7 +54,7 @@ class FirmaElectronicaResource(Resource):
 @ns_v1.route("/verify")
 class VerifyFirmaResource(Resource):
 
-    @ns_v1.expect(model_params["firma_model"], validate=True)
+    @ns_v1.expect(model_params["firma_model"], validate=False)
     @cross_origin(**api_cors_config)
     def post(self):
         """

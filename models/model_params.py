@@ -62,8 +62,12 @@ def define_parameters(api):
 
     firma_model = [api.model('firma_request',{
         'firma': fields.String,
-        'fileUp': fields.String,
-        'urlFileUp': fields.String,
+        'fileUp': fields.Raw(
+            description='Acepta string, lista u objeto para compatibilidad con consumidores'
+        ),
+        'urlFileUp': fields.Raw(
+            description='Acepta string, lista u objeto para compatibilidad con consumidores'
+        ),
     })]
 
     qr_token_model = api.model('qr_token_request', {

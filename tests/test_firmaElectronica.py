@@ -1,8 +1,12 @@
 import pytest
 from api import app
 from unittest.mock import patch, Mock
+
 from controllers.controllerFirma import postFirmaElectronica, postVerify, _build_storage_signature_payload
 from models.firma_electronica import ElectronicSign
+
+from controllers.controllerFirma import _normalize_verify_upload_fields, postFirmaElectronica, postVerify
+
 
 @patch('controllers.controllerFirma.requests.get')
 @patch('controllers.controllerFirma.requests.post')
@@ -353,6 +357,43 @@ def test_postVerify(mock_get, codigoVerificacion, mock_respuesta_docCrud):
         }
     ])
     assert response.status_code == 200
+
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        ({"fileUp": {}, "urlFileUp": {}}, {"fileUp": "", "urlFileUp": ""}),
+        ({"fileUp": [], "urlFileUp": []}, {"fileUp": "", "urlFileUp": ""}),
+        (
+            {"fileUp": ["base64-pdf"], "urlFileUp": [{"url": "https://archivo.test/doc.pdf"}]},
+            {"fileUp": "base64-pdf", "urlFileUp": "https://archivo.test/doc.pdf"}
+        ),
+        (
+            {"fileUp": {"file": "base64-pdf"}, "urlFileUp": {"enlace": "https://archivo.test/doc.pdf"}},
+            {"fileUp": "base64-pdf", "urlFileUp": "https://archivo.test/doc.pdf"}
+        ),
+    ]
+)
+def test_normalize_verify_upload_fields(payload, expected):
+    _normalize_verify_upload_fields(payload)
+    assert payload == expected
+
+@patch('controllers.controllerFirma.requests.get')
+def test_postVerify_returns_clear_error_when_dependency_response_is_empty(mock_get):
+    mock_response = Mock()
+    mock_response.content = b'\n'
+    mock_response.status_code = 200
+    mock_get.return_value = mock_response
+
+    response = postVerify([
+        {
+            "firma": "firma-id",
+            "fileUp": {},
+            "urlFileUp": {}
+        }
+    ])
+
+    assert response.status_code == 500
+    assert "documentos_crud firma_electronica returned an empty response" in response.get_data(as_text=True)
 
 @patch('controllers.controllerFirma.postVerify')
 def test_falloPostVerify(mock_postVerify):
