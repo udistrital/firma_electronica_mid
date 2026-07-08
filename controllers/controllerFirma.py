@@ -76,7 +76,6 @@ def _build_storage_signature_payload(firmantes, representantes):
         "firmantes": _sanitize_people_for_storage(firmantes),
         "representantes": _sanitize_people_for_storage(representantes),
     }
-=======
 def _normalize_upload_field(value, preferred_keys=None):
     if value is None:
         return ""
