@@ -62,60 +62,6 @@ class ElectronicSign:
         image_buffer.seek(0)
         return ImageReader(image_buffer)
 
-    def _build_person_signature_block(self, person, wrap_width=None):
-        oficina = str(person.get("oficina", "")).strip()
-        cargo = str(person.get("cargo", "")).strip()
-        nombre = str(person.get("nombre", "")).strip()
-        tipo_id = str(person.get("tipoId", "")).strip()
-        identificacion = str(person.get("identificacion", "")).strip()
-        identity = " ".join(filter(None, [tipo_id, identificacion]))
-        custom_order = person.get("orden_campos")
-
-        field_values = {
-            "nombre": nombre,
-            "cargo": cargo,
-            "oficina": oficina,
-            "documento": identity,
-            "tipoId": tipo_id,
-            "identificacion": identificacion,
-        }
-
-        if isinstance(custom_order, list) and len(custom_order) > 0:
-            lines = []
-            for field_name in custom_order:
-                if field_name == "documento":
-                    value = identity
-                else:
-                    value = field_values.get(str(field_name), "")
-                value = str(value).strip()
-                if value:
-                    lines.append(value)
-            text = "\n".join(lines)
-        elif oficina:
-            lines = [nombre]
-            if identity:
-                lines.append(identity)
-            if cargo:
-                lines.append(cargo)
-            lines.append(oficina)
-            text = "\n".join(filter(None, lines))
-        else:
-            cargo_prefix = f"{cargo}: " if cargo else ""
-            text = f"{cargo_prefix}{nombre}"
-            if identity:
-                text = f"{text}. {identity}"
-
-        if text == "":
-            text = nombre
-
-        if wrap_width is None:
-            return text
-
-        wrapped_lines = []
-        for line in text.split("\n"):
-            wrapped_lines.extend(wrap(line, wrap_width) or [""])
-        return "\n".join(wrapped_lines)
-
     def lastPageItems(self, pdfIn):
         """
             Analiza el pdf para determinar las posiciones de sus elementos
@@ -225,11 +171,19 @@ class ElectronicSign:
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
-            wraped_firmantes.append(self._build_person_signature_block(firmante, left_value_width))
+            cargo = ""
+            if firmante["cargo"] != "":
+                cargo = firmante["cargo"] + ": "
+            text = cargo + firmante["nombre"] + ". " + firmante["tipoId"] + " " + firmante["identificacion"]
+            wraped_firmantes.append("\n".join(wrap(text, left_value_width)))
 
         wraped_representantes = []
         for representante in datos["representantes"]:
-            wraped_representantes.append(self._build_person_signature_block(representante, left_value_width))
+            cargo = ""
+            if representante["cargo"] != "":
+                cargo = representante["cargo"] + ": "
+            text = cargo + representante["nombre"] + ". " + representante["tipoId"] + " " + representante["identificacion"]
+            wraped_representantes.append("\n".join(wrap(text, left_value_width)))
 
         firma = datos.get("firma", "")
         wrapped_tipo_documento = "\n".join(wrap(datos.get("tipo_documento", ""), left_value_width))
@@ -387,13 +341,21 @@ class ElectronicSign:
 
         wraped_firmantes = []
         for firmante in datos["firmantes"]:
-            text = self._build_person_signature_block(firmante, 60)
+            cargo = ""
+            if firmante["cargo"] != "":
+                cargo = firmante["cargo"] + ": "
+            text = cargo + firmante["nombre"] + ". " + firmante["tipoId"] + " " + firmante["identificacion"]
+            text = "\n".join(wrap(text, 60))
             signPageSize += text.count("\n")
             wraped_firmantes.append(text)
 
         wraped_representantes = []
         for representante in datos["representantes"]:
-            text = self._build_person_signature_block(representante, 60)
+            cargo = ""
+            if representante["cargo"] != "":
+                cargo = representante["cargo"] + ": "
+            text = cargo + representante["nombre"] + ". " + representante["tipoId"] + " " + representante["identificacion"]
+            text = "\n".join(wrap(text, 60))
             text.count("\n")
             signPageSize += text.count("\n")
             wraped_representantes.append(text)
