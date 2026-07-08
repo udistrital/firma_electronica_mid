@@ -12,27 +12,17 @@ def define_parameters(api):
     })
 
     firmantes_model =api.model('firmantes_info', {
-        'nombre': fields.String(required=True),
+        'nombre': fields.String,
         'cargo': fields.String,
-        'oficina': fields.String,
         'tipoId': fields.String,
         'identificacion': fields.String,
-        'orden_campos': fields.List(
-            fields.String,
-            description='Orden opcional de impresion. Valores sugeridos: nombre, documento, cargo, oficina, tipoId, identificacion'
-        ),
     })
 
     representantes_model =api.model('representantes_info', {
         'nombre': fields.String,
         'cargo': fields.String,
-        'oficina': fields.String,
         'tipoId': fields.String,
         'identificacion': fields.String,
-        'orden_campos': fields.List(
-            fields.String,
-            description='Orden opcional de impresion. Valores sugeridos: nombre, documento, cargo, oficina, tipoId, identificacion'
-        ),
     })
 
     upload_model = [api.model('upload_resquest', {
