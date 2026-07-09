@@ -39,6 +39,43 @@ def _normalize_representantes(data):
         raise ValueError("400: invalid representantes field")
 
 
+
+def _validate_firmantes(data):
+    if not isinstance(data, list):
+        raise ValueError("400: invalid request body")
+
+    for item in data:
+        firmantes = item["firmantes"]
+        if not isinstance(firmantes, list):
+            raise ValueError("400: invalid firmantes field")
+
+        for firmante in firmantes:
+            if not isinstance(firmante, dict):
+                raise ValueError("400: invalid firmantes field")
+            if str(firmante.get("nombre", "")).strip() == "":
+                raise ValueError("400: firmante nombre is required")
+
+
+def _sanitize_people_for_storage(people):
+    if not isinstance(people, list):
+        return people
+
+    sanitized_people = []
+    for person in people:
+        if not isinstance(person, dict):
+            sanitized_people.append(person)
+            continue
+        sanitized_person = dict(person)
+        sanitized_person.pop("orden_campos", None)
+        sanitized_people.append(sanitized_person)
+    return sanitized_people
+
+
+def _build_storage_signature_payload(firmantes, representantes):
+    return {
+        "firmantes": _sanitize_people_for_storage(firmantes),
+        "representantes": _sanitize_people_for_storage(representantes),
+    }
 def _normalize_upload_field(value, preferred_keys=None):
     if value is None:
         return ""
@@ -90,6 +127,7 @@ def _decode_json_response(response, service_name):
         raise ValueError(f"{service_name} returned invalid JSON: {preview}") from exc
 
 
+
 def postFirmaElectronica(data):
     """
         Carga 1 documento (orientado a pdf) a Nuxeo pasando body json con archivo en base64
@@ -111,6 +149,7 @@ def postFirmaElectronica(data):
 
     try:
         _normalize_representantes(data)
+        _validate_firmantes(data)
         for i in range(len(data)):
 
             nombreGenerado = uuid.uuid4()
@@ -146,10 +185,10 @@ def postFirmaElectronica(data):
             blob = base64.b64decode(data[i]['file'])
             with open(os.path.expanduser(archivoAFirmar), 'wb') as fout:
                 fout.write(blob)
-            jsonFirmantes = {
-                    "firmantes": data[i]["firmantes"],
-                    "representantes": data[i]["representantes"],
-            }
+            jsonFirmantes = _build_storage_signature_payload(
+                data[i]["firmantes"],
+                data[i]["representantes"],
+            )
             all_metadata = str({** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"')
             DicPostDoc = {
                 'Metadatos': all_metadata,
@@ -183,8 +222,8 @@ def postFirmaElectronica(data):
             }
             electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
             jsonStringFirmantes = {
-                "firmantes": json.dumps(data[i]["firmantes"]),
-                "representantes": json.dumps(data[i]["representantes"])
+                "firmantes": json.dumps(jsonFirmantes["firmantes"]),
+                "representantes": json.dumps(jsonFirmantes["representantes"])
             }
             firma_electronica = firmar(str(electronicSign.docFirmadoBase64(archivoFirmado)))
             #Inicio update firma
@@ -245,6 +284,9 @@ def postFirmaElectronica(data):
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif str(e) == "'firmantes'":
             error_dict = {'Status':'the field firmantes is required','Code':'400'}
+            return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+        elif 'firmante nombre is required' in str(e):
+            error_dict = {'Status':'the field firmantes.nombre is required','Code':'400'}
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif '400' in str(e):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
@@ -347,6 +389,7 @@ def FirmaMultiple(data):
 
     try:
         _normalize_representantes(data)
+        _validate_firmantes(data)
         for i in range(len(data)):
 
             nombreGenerado = uuid.uuid4()
@@ -382,10 +425,10 @@ def FirmaMultiple(data):
             blob = base64.b64decode(data[i]['file'])
             with open(os.path.expanduser(archivoAFirmar), 'wb') as fout:
                 fout.write(blob)
-            jsonFirmantes = {
-                    "firmantes": data[i]["firmantes"],
-                    "representantes": data[i]["representantes"],
-            }
+            jsonFirmantes = _build_storage_signature_payload(
+                data[i]["firmantes"],
+                data[i]["representantes"],
+            )
             all_metadata = str({** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"')
             DicPostDoc = {
                 'Metadatos': all_metadata,
@@ -431,10 +474,10 @@ def FirmaMultiple(data):
 
             if data[i]["etapa_firma"] == 3:
                 metaDatos = data[i]["metadatos"]
-                jsonFirmantesCompletos = {
-                    "firmantes": metaDatos['firmantes'],
-                    "representantes": metaDatos["representantes"]
-                }
+                jsonFirmantesCompletos = _build_storage_signature_payload(
+                    metaDatos['firmantes'],
+                    metaDatos["representantes"],
+                )
                 firma_electronica = firmar(str(electronicSign.docFirmadoBase64(archivoFirmado)))
                 #Inicio update firma
                 objFirmaElectronica = {
@@ -456,8 +499,8 @@ def FirmaMultiple(data):
                     firma_electronica["qr_url_segura"] = qr_url
                 #Fin modificación
                 #Modificación de metadatos
-                metaDatos["firmantes"] = json.dumps(metaDatos["firmantes"])
-                metaDatos["representantes"] = json.dumps(metaDatos["representantes"])
+                metaDatos["firmantes"] = json.dumps(jsonFirmantesCompletos["firmantes"])
+                metaDatos["representantes"] = json.dumps(jsonFirmantesCompletos["representantes"])
                 data[i]["metadatos"] = metaDatos
                 #Fin Modificación de metadatos
                 all_metadata = str({** firma_electronica, ** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
@@ -499,6 +542,9 @@ def FirmaMultiple(data):
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif str(e) == "'firmantes'":
             error_dict = {'Status':'the field firmantes is required','Code':'400'}
+            return Response(json.dumps(error_dict), status=400, mimetype='application/json')
+        elif 'firmante nombre is required' in str(e):
+            error_dict = {'Status':'the field firmantes.nombre is required','Code':'400'}
             return Response(json.dumps(error_dict), status=400, mimetype='application/json')
         elif '400' in str(e):
             DicStatus = {'Status':'invalid request body', 'Code':'400'}
