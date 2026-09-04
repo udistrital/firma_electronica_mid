@@ -27,6 +27,12 @@ ns_v1 = docDocumentacion.namespace(
     description="Servicios de firma electrónica"
 )
 
+ns_v2 = docDocumentacion.namespace(
+    "v2",
+    path="/v2",
+    description="Servicios de firma electrónica con almacenamiento dirigido"
+)
+
 model_params = define_parameters(docDocumentacion)
 
 @ns_v1.route("/firma_electronica")
@@ -72,6 +78,30 @@ class VerifyFirmaResource(Resource):
         """
         body = request.get_json()
         return controllerFirma.postVerify(body)
+
+@ns_v2.route("/firma_electronica")
+class FirmaElectronicaV2Resource(Resource):
+
+    @ns_v2.expect(model_params["upload_v2_model"], validate=False)
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """
+            Permite firmar un documento, estampar QR y registrar metadata segun el repositorio documental indicado
+        """
+        body = request.get_json()
+        return controllerFirma.postFirmaElectronicaV2(body)
+
+
+@ns_v2.route("/firma_electronica/<string:firma_id>")
+class FirmaElectronicaV2MetadataResource(Resource):
+
+    @cross_origin(**api_cors_config)
+    def get(self, firma_id):
+        """
+            Consulta la firma almacenada por firma_id
+        """
+        return controllerFirma.getFirmaElectronicaV2(firma_id)
+
 
 @ns_v1.route("/qr")
 class SecureQrResource(Resource):

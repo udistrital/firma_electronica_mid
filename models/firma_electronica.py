@@ -152,6 +152,7 @@ class ElectronicSign:
     def signPosition(self, pdfIn):
         yText = self.lastPageItems(pdfIn)
         yText.reverse()
+        y = self.YFOOTER
 
         for i in range(0,len(yText)):
             if yText[i] > 80:
@@ -360,6 +361,45 @@ class ElectronicSign:
         return espacio
 
     #--------- FIN NUEVA ESTAMPA --------
+
+    def signature_qr_only(self, pdfIn, yPosition, datos, archivoFirma):
+        qr_url = datos.get("qr_url")
+        qr_image = self.build_qr_image(qr_url)
+        if not qr_image:
+            raise ValueError("QR image could not be generated")
+
+        qr_size = 96
+        qr_margin = 36
+        verification_uuid = str(datos.get("firma_id") or datos.get("firma") or "").strip()
+
+        page = PdfReader(pdfIn).pages[0]
+        page_width = int(page.mediabox[2])
+        page_height = int(page.mediabox[3])
+
+        qr_x = max(qr_margin, page_width - qr_size - qr_margin)
+        qr_y = qr_margin + 18
+
+        c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
+        c.setFillColorRGB(1, 1, 1)
+        c.rect(qr_x - 8, qr_y - 22, qr_size + 16, qr_size + 30, fill=1, stroke=0)
+        c.drawImage(
+            qr_image,
+            qr_x,
+            qr_y,
+            width=qr_size,
+            height=qr_size,
+            preserveAspectRatio=True,
+            mask="auto"
+        )
+        if verification_uuid:
+            c.setFillColorRGB(0, 0, 0)
+            c.setFont("Helvetica", 5.5)
+            text_width = c.stringWidth(verification_uuid, "Helvetica", 5.5)
+            c.drawString(qr_x + ((qr_size - text_width) / 2), qr_y - 10, verification_uuid)
+        c.showPage()
+        c.save()
+        return True
 
     def signature(self, pdfIn, yPosition, datos, archivoFirma):
         """
@@ -607,7 +647,9 @@ class ElectronicSign:
             yPosition = self.signPosition(pdfIn) - 10
         # Generar firma visual
         with open(archivoAFirmar, "rb") as pdfIn:
-            if datos.get('tipo_firma'):
+            if datos.get("solo_qr"):
+                self.signature_qr_only(pdfIn, yPosition, datos, archivoFirma)
+            elif datos.get('tipo_firma'):
                 if datos['tipo_firma'] != 1:
                     yPosition = yPosition + 15
                 etapa = datos['tipo_firma']
@@ -616,7 +658,9 @@ class ElectronicSign:
                 suficienteEspacio = self.signature(pdfIn, yPosition, datos, archivoFirma)
         # Estampar en documento
         with open(archivoAFirmar, "rb") as pdfIn:
-            if suficienteEspacio:
+            if datos.get("solo_qr"):
+                self.estamparUltimaPagina(pdfIn, archivoFirma, archivoFirmado)
+            elif suficienteEspacio:
                 self.estamparUltimaPagina(pdfIn, archivoFirma, archivoFirmado)
             else:
                 self.estamparNuevaPagina(pdfIn, archivoFirma, archivoFirmado)

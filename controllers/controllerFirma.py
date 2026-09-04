@@ -2,10 +2,11 @@ import logging, json, requests, os, base64
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from flask import Response
+from flask import Response, request
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
 from services.qr_security import build_qr_url, validate_qr_token
+from services.document_store import calculate_base64_sha256, get_firma_metadata, put_firma_metadata, utc_now_iso
 from conf.conf import get_documentos_crud_url, get_gestor_documental_url, get_qr_base_url
 import uuid
 
@@ -299,6 +300,174 @@ def postFirmaElectronica(data):
                     os.remove(f)
             except Exception:
                 pass
+
+
+def _get_storage_destination(item):
+    destino = (
+        item.get("repositorio_documental")
+        or item.get("gestor_documental")
+        or item.get("destino_almacenamiento")
+        or item.get("repositorio_destino")
+        or "nuxeo"
+    )
+    return str(destino).strip().lower()
+
+
+def _get_documento_id(item):
+    documento_id = item.get("documento_id") or item.get("DocumentoId") or item.get("idDocumento")
+    if isinstance(documento_id, dict):
+        documento_id = documento_id.get("Id") or documento_id.get("id")
+    if documento_id is None and isinstance(item.get("metadatos"), dict):
+        documento_id = item["metadatos"].get("documento_id")
+    if documento_id is None:
+        raise ValueError("400: documento_id is required for repositorio_documental diplomas")
+    return int(documento_id)
+
+
+def _build_error_response(error):
+    if str(error) == "'IdTipoDocumento'":
+        return Response(json.dumps({'Status':'the field IdTipoDocumento is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'nombre'":
+        return Response(json.dumps({'Status':'the field nombre is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'file'":
+        return Response(json.dumps({'Status':'the field file is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'metadatos'":
+        return Response(json.dumps({'Status':'the field metadatos is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'descripcion'":
+        return Response(json.dumps({'Status':'the field descripcion is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'representantes'":
+        return Response(json.dumps({'Status':'the field representantes is required','Code':'400'}), status=400, mimetype='application/json')
+    if str(error) == "'firmantes'":
+        return Response(json.dumps({'Status':'the field firmantes is required','Code':'400'}), status=400, mimetype='application/json')
+    if 'firmante nombre is required' in str(error):
+        return Response(json.dumps({'Status':'the field firmantes.nombre is required','Code':'400'}), status=400, mimetype='application/json')
+    if '400' in str(error):
+        return Response(json.dumps({'Status':'invalid request body', 'Code':'400'}), status=400, mimetype='application/json')
+    if 'already exists' in str(error):
+        return Response(json.dumps({'Status':'409','Error':str(error)}), status=409, mimetype='application/json')
+    return Response(json.dumps({'Status':'500','Error':str(error)}), status=500, mimetype='application/json')
+
+
+def postFirmaElectronicaV2(data):
+    response_array = []
+    archivos_temporales = []
+
+    try:
+        _normalize_representantes(data)
+        _validate_firmantes(data)
+
+        for item in data:
+            destino = _get_storage_destination(item)
+            if destino in ("nuxeo", "gestor_documental", "gestor_documental_mid"):
+                legacy_response = postFirmaElectronica([item])
+                return legacy_response
+            if destino not in ("s3_diplomas", "s3", "diplomas"):
+                raise ValueError("400: unsupported repositorio_documental")
+            repositorio_documental = "diplomas"
+
+            nombreGenerado = uuid.uuid4()
+            firma_id = str(uuid.uuid4())
+            uuid_documento = str(uuid.uuid4())
+            documento_id = _get_documento_id(item)
+            archivoAFirmar = f"./documents/{nombreGenerado}ToSign.pdf"
+            archivoFirma = f"./documents/{nombreGenerado}signature.pdf"
+            archivoFirmado = f"./documents/{nombreGenerado}Signed.pdf"
+            archivos_temporales.extend([archivoAFirmar, archivoFirma, archivoFirmado])
+
+            if len(str(item['file'])) < 1000:
+                return Response(json.dumps({'Status':'invalid pdf file','Code':'400'}), status=400, mimetype='application/json')
+            if not ElectronicSign.verificaEsPdf(item['file']):
+                return Response(json.dumps({'Status':'El archivo no es un pdf','Code':'400'}), status=400, mimetype='application/json')
+
+            blob = base64.b64decode(item['file'])
+            with open(os.path.expanduser(archivoAFirmar), 'wb') as fout:
+                fout.write(blob)
+
+            electronicSign = ElectronicSign()
+            qr_url = build_qr_url(
+                firma_id,
+                documento_id,
+                {
+                    "firma_id": firma_id,
+                    "uuid_documento": uuid_documento,
+                    "repositorio_documental": repositorio_documental,
+                }
+            )
+            if not qr_url:
+                return Response(json.dumps({'Status':'QR configuration is required for repositorio_documental diplomas','Code':'500'}), status=500, mimetype='application/json')
+
+            datos = {
+                "firma": firma_id,
+                "firma_id": firma_id,
+                "uuid_documento": uuid_documento,
+                "firmantes": item["firmantes"],
+                "representantes": item["representantes"],
+                "tipo_firma": 3,
+                "qr_url": qr_url,
+                "solo_qr": True,
+            }
+            electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
+            docFirmadoBase64 = str(electronicSign.docFirmadoBase64(archivoFirmado))
+            firma_electronica = firmar(docFirmadoBase64)
+            hash_sha256 = calculate_base64_sha256(docFirmadoBase64)
+            jsonFirmantes = _build_storage_signature_payload(item["firmantes"], item["representantes"])
+            now = utc_now_iso()
+            dynamo_item = {
+                "firma_id": firma_id,
+                "documento_id": documento_id,
+                "repositorio_documental": repositorio_documental,
+                "codigo_autenticidad": firma_electronica["codigo_autenticidad"],
+                "llaves": json.dumps(firma_electronica["llaves"]),
+                "firmantes": json.dumps(jsonFirmantes),
+                "firma_encriptada": firma_electronica["llaves"]["firma"],
+                "activo": True,
+                "fecha_creacion": now,
+                "uuid_documento": uuid_documento,
+                "hash_sha256": hash_sha256,
+                "qr_url_segura": qr_url,
+            }
+            dynamo_ref = put_firma_metadata(dynamo_item)
+
+            response_array.append({
+                "Status": "200",
+                "firma_id": firma_id,
+                "repositorio_documental": repositorio_documental,
+                "documento_id": documento_id,
+                "uuid_documento": uuid_documento,
+                "hash_sha256": hash_sha256,
+                "codigo_autenticidad": firma_electronica["codigo_autenticidad"],
+                "firma_encriptada": firma_electronica["llaves"]["firma"],
+                "llaves": firma_electronica["llaves"],
+                "firmantes": jsonFirmantes,
+                "qr_url_segura": qr_url,
+                "dynamodb": dynamo_ref,
+                "file": docFirmadoBase64,
+            })
+
+        response_payload = response_array if len(response_array) > 1 else response_array[0]
+        return Response(json.dumps(response_payload), status=200, mimetype='application/json')
+    except Exception as e:
+        logging.error("type error: " + str(e))
+        return _build_error_response(e)
+    finally:
+        for f in archivos_temporales:
+            try:
+                if os.path.exists(f):
+                    os.remove(f)
+            except Exception:
+                pass
+
+
+def getFirmaElectronicaV2(firma_id, sk=None):
+    try:
+        item = get_firma_metadata(firma_id, sk)
+        if not item:
+            return Response(json.dumps({'Status':'404','Error':'firma_electronica not found'}), status=404, mimetype='application/json')
+        return Response(json.dumps(item), status=200, mimetype='application/json')
+    except Exception as e:
+        logging.error("type error: " + str(e))
+        return _build_error_response(e)
+
 
 def postVerify(data):
     """
@@ -652,7 +821,7 @@ def resolveSecureQrFile(data):
             return Response(json.dumps({'Status':'404','Error':'document content not available'}), status=404, mimetype='application/json')
 
         try:
-            base64.b64decode(base64_file)
+            binary_file = base64.b64decode(base64_file)
         except Exception:
             return Response(json.dumps({'Status':'500','Error':'invalid document base64 content'}), status=500, mimetype='application/json')
 
@@ -660,6 +829,15 @@ def resolveSecureQrFile(data):
         mime_type = file_content.get("mime-type", "application/pdf")
         filename = file_content.get("name") or responseDocumento.get("dc:title") or f"{enlace}.pdf"
         content_disposition = f'inline; filename="{filename}"'
+
+        best_match = request.accept_mimetypes.best_match([mime_type, "application/json"])
+        if best_match == mime_type:
+            return Response(
+                binary_file,
+                status=200,
+                mimetype=mime_type,
+                headers={"Content-Disposition": content_disposition},
+            )
 
         response_payload = {
             "Status": "200",

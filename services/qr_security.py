@@ -53,7 +53,7 @@ def _build_fernet(secret: bytes | str) -> Fernet | None:
     return Fernet(key)
 
 
-def build_qr_token(firma_id: Any, documento_id: Any) -> str | None:
+def build_qr_token(firma_id: Any, documento_id: Any, extra_payload: dict[str, Any] | None = None) -> str | None:
     secret_material = get_active_secret_material()
     fernet = _build_fernet(secret_material.value)
     if not fernet:
@@ -64,14 +64,20 @@ def build_qr_token(firma_id: Any, documento_id: Any) -> str | None:
         "firma_id": str(firma_id),
         "documento_id": str(documento_id),
     }
+    if extra_payload:
+        payload.update(extra_payload)
     header = _encode_header({"kid": secret_material.kid})
     encrypted_payload = fernet.encrypt(_json_dumps(payload)).decode("utf-8")
     return f"{header}.{encrypted_payload}"
 
 
-def build_qr_url(firma_id: Any, documento_id: Any) -> str | None:
-    base_url = get_qr_base_url().rstrip("/")
-    token = build_qr_token(firma_id, documento_id)
+def build_qr_url(firma_id: Any, documento_id: Any, extra_payload: dict[str, Any] | None = None) -> str | None:
+    raw_base_url = get_qr_base_url()
+    if not raw_base_url:
+        return None
+
+    base_url = raw_base_url.rstrip("/")
+    token = build_qr_token(firma_id, documento_id, extra_payload)
     if not base_url or not token:
         return None
 
