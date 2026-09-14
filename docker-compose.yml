@@ -1,0 +1,19 @@
+services:
+  firma_electronica_mid:
+    container_name: firma-electronica-mid-local
+    build:
+      context: .
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./api.py:/api.py
+      - ./conf:/conf
+      - ./controllers:/controllers
+      - ./models:/models
+      - ./routers:/routers
+      - ./services:/services
+      - ./documents:/documents
