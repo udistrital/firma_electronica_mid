@@ -368,8 +368,8 @@ class ElectronicSign:
         if not qr_image:
             raise ValueError("QR image could not be generated")
 
-        qr_size = 96
-        qr_margin = 36
+        qr_size = 91
+        qr_margin = 28
         verification_uuid = str(datos.get("firma_id") or datos.get("firma") or "").strip()
 
         page = PdfReader(pdfIn).pages[0]
@@ -377,12 +377,12 @@ class ElectronicSign:
         page_height = int(page.mediabox[3])
 
         qr_x = max(qr_margin, page_width - qr_size - qr_margin)
-        qr_y = qr_margin + 18
+        qr_y = max(qr_margin, page_height - qr_size - qr_margin)
 
         c = canvas.Canvas(archivoFirma)
         c.setPageSize((page_width, page_height))
         c.setFillColorRGB(1, 1, 1)
-        c.rect(qr_x - 8, qr_y - 22, qr_size + 16, qr_size + 30, fill=1, stroke=0)
+        c.rect(qr_x - 5, qr_y - 11, qr_size + 10, qr_size + 16, fill=1, stroke=0)
         c.drawImage(
             qr_image,
             qr_x,
@@ -394,9 +394,9 @@ class ElectronicSign:
         )
         if verification_uuid:
             c.setFillColorRGB(0, 0, 0)
-            c.setFont("Helvetica", 5.5)
-            text_width = c.stringWidth(verification_uuid, "Helvetica", 5.5)
-            c.drawString(qr_x + ((qr_size - text_width) / 2), qr_y - 10, verification_uuid)
+            c.setFont("Helvetica", 3.8)
+            text_width = c.stringWidth(verification_uuid, "Helvetica", 3.8)
+            c.drawString(qr_x + ((qr_size - text_width) / 2), qr_y - 6, verification_uuid)
         c.showPage()
         c.save()
         return True
