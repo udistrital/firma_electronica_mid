@@ -161,6 +161,13 @@ class ElectronicSign:
 
         return int(y)
 
+    def lastPageSize(self, pdfIn):
+        """
+            Retorna el ancho y alto de la ultima pagina, donde se estampa la firma
+        """
+        page = PdfReader(pdfIn).pages[-1]
+        return int(page.mediabox[2]), int(page.mediabox[3])
+
     def descrypt(self, codigo):
         """
             Desencripta un texto
@@ -209,9 +216,7 @@ class ElectronicSign:
         link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
-        page = PdfReader(pdfIn).pages[0]
-        page_width = int(page.mediabox[2])
-        page_height = int(page.mediabox[3])
+        page_width, page_height = self.lastPageSize(pdfIn)
         y = yPosition
         line_height = 8
         section_gap = 4
@@ -282,7 +287,10 @@ class ElectronicSign:
         if(yPosition - self.YFOOTER < signPageSize):
             y = page_height - self.YHEEADER
 
+        # El lienzo debe medir lo mismo que la pagina; si no, pypdf recorta lo que quede
+        # por fuera de A4 vertical (p. ej. el QR en documentos horizontales)
         c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
         pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
         pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
 
@@ -372,9 +380,7 @@ class ElectronicSign:
         qr_margin = 36
         verification_uuid = str(datos.get("firma_id") or datos.get("firma") or "").strip()
 
-        page = PdfReader(pdfIn).pages[0]
-        page_width = int(page.mediabox[2])
-        page_height = int(page.mediabox[3])
+        page_width, page_height = self.lastPageSize(pdfIn)
 
         qr_x = max(qr_margin, page_width - qr_size - qr_margin)
         qr_y = qr_margin + 18
@@ -448,11 +454,13 @@ class ElectronicSign:
 
 
 
+        page_width, page_height = self.lastPageSize(pdfIn)
         if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
+            y = page_height - self.YHEEADER
 
 
         c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
         # Create the signPdf from an image
         # c = canvas.Canvas('signPdf.pdf')
 
