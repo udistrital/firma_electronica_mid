@@ -190,7 +190,7 @@ def postFirmaElectronica(data):
                 data[i]["firmantes"],
                 data[i]["representantes"],
             )
-            all_metadata = str({** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"')
+            all_metadata = json.dumps(data[i]["metadatos"])
             DicPostDoc = {
                 'Metadatos': all_metadata,
                 'Nombre': data[i]['nombre'],
@@ -199,7 +199,7 @@ def postFirmaElectronica(data):
                 'Activo': True
             }
             resPost = requests.post(get_documentos_crud_url()+'documento', json=DicPostDoc).content
-            responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
+            responsePostDoc = json.loads(resPost.decode("utf8"))
             electronicSign = ElectronicSign()
             objFirmaElectronica = {
                 "Activo": True,
@@ -222,10 +222,6 @@ def postFirmaElectronica(data):
                 "qr_url": qr_url,
             }
             electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
-            jsonStringFirmantes = {
-                "firmantes": json.dumps(jsonFirmantes["firmantes"]),
-                "representantes": json.dumps(jsonFirmantes["representantes"])
-            }
             firma_electronica = firmar(str(electronicSign.docFirmadoBase64(archivoFirmado)))
             #Inicio update firma
             objFirmaElectronica = {
@@ -246,7 +242,7 @@ def postFirmaElectronica(data):
             if qr_url:
                 firma_electronica["qr_url_segura"] = qr_url
             #Fin modificación
-            all_metadata = str({** firma_electronica, ** data[i]['metadatos'],  ** jsonStringFirmantes}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
+            all_metadata = json.dumps({**firma_electronica, **data[i]["metadatos"], **jsonFirmantes})
             docFirmadoBase64 = str(electronicSign.docFirmadoBase64(archivoFirmado))
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
@@ -257,7 +253,7 @@ def postFirmaElectronica(data):
                 "idDocumento": responsePostDoc["Id"]
             }]
             reqPutFirma = requests.put(get_gestor_documental_url()+'document/putUpdate', json=putUpdateJson).content
-            responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
+            responsePutUpdate = json.loads(reqPutFirma.decode("utf8"))
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
         responsePutUpdate['file'] = docFirmadoBase64
@@ -598,7 +594,7 @@ def FirmaMultiple(data):
                 data[i]["firmantes"],
                 data[i]["representantes"],
             )
-            all_metadata = str({** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"')
+            all_metadata = json.dumps(data[i]["metadatos"])
             DicPostDoc = {
                 'Metadatos': all_metadata,
                 'Nombre': data[i]['nombre'],
@@ -607,7 +603,7 @@ def FirmaMultiple(data):
                 'Activo': True
             }
             resPost = requests.post(get_documentos_crud_url()+'documento', json=DicPostDoc).content
-            responsePostDoc = json.loads(resPost.decode('utf8').replace("'", '"'))
+            responsePostDoc = json.loads(resPost.decode("utf8"))
             electronicSign = ElectronicSign()
             objFirmaElectronica = {
                 "Activo": True,
@@ -667,12 +663,7 @@ def FirmaMultiple(data):
                 if qr_url:
                     firma_electronica["qr_url_segura"] = qr_url
                 #Fin modificación
-                #Modificación de metadatos
-                metaDatos["firmantes"] = json.dumps(jsonFirmantesCompletos["firmantes"])
-                metaDatos["representantes"] = json.dumps(jsonFirmantesCompletos["representantes"])
-                data[i]["metadatos"] = metaDatos
-                #Fin Modificación de metadatos
-                all_metadata = str({** firma_electronica, ** data[i]['metadatos']}).replace("{'", '{\\"').replace("': '", '\\":\\"').replace("': ", '\\":').replace(", '", ',\\"').replace("',", '",').replace('",' , '\\",').replace("'}", '\\"}').replace('\\"', '\"').replace("[", "").replace("]", "").replace('"{', '{').replace('}"', '}').replace(": ", ":").replace(", ", ",").replace("[", "").replace("]", "").replace("},{", ",")
+                all_metadata = json.dumps({**firma_electronica, **data[i]["metadatos"], **jsonFirmantesCompletos})
 
             putUpdateJson = [{
                 "IdTipoDocumento": data[i]['IdTipoDocumento'],
@@ -683,7 +674,7 @@ def FirmaMultiple(data):
                 "idDocumento": responsePostDoc["Id"]
             }]
             reqPutFirma = requests.put(get_gestor_documental_url()+'document/putUpdate', json=putUpdateJson).content
-            responsePutUpdate = json.loads(reqPutFirma.decode('utf8').replace("'", '"'))
+            responsePutUpdate = json.loads(reqPutFirma.decode("utf8"))
             response_array.append(responsePutUpdate)
         responsePutUpdate = response_array if len(response_array) > 1 else responsePutUpdate
 
