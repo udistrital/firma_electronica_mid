@@ -1,3 +1,6 @@
+import base64
+import json
+
 import pytest
 from api import app
 from unittest.mock import patch, Mock
@@ -5,7 +8,7 @@ from unittest.mock import patch, Mock
 from controllers.controllerFirma import postFirmaElectronica, postVerify, _build_storage_signature_payload
 from models.firma_electronica import ElectronicSign
 
-from controllers.controllerFirma import _normalize_verify_upload_fields, postFirmaElectronica, postVerify
+from controllers.controllerFirma import _normalize_verify_upload_fields, getFirmaElectronicaV2, postFirmaElectronica, postFirmaElectronicaV2, postVerify
 
 
 @patch('controllers.controllerFirma.requests.get')
@@ -323,7 +326,7 @@ def test_postFirmaElectronica_acepta_representantes_objeto_vacio(
             }],
             "representantes": {},
             "descripcion": "Prueba Unitaria de firma electrónica",
-            "file": "x" * 1001
+            "file": base64.b64encode(b"%PDF-1.7\n" * 130).decode("utf-8")
         }
     ])
 
@@ -494,3 +497,98 @@ def test_postFirmaElectronica_rechaza_firmante_sin_nombre():
 
     assert response.status_code == 400
     assert response.get_data(as_text=True) == '{"Status": "the field firmantes.nombre is required", "Code": "400"}'
+
+
+@patch('controllers.controllerFirma.put_firma_metadata')
+@patch('controllers.controllerFirma.calculate_base64_sha256', return_value='hash-1')
+@patch('controllers.controllerFirma.build_qr_url', return_value='http://qr.test/token')
+@patch('controllers.controllerFirma.firmar')
+@patch('controllers.controllerFirma.ElectronicSign.docFirmadoBase64', return_value='pdf-firmado-base64')
+@patch('controllers.controllerFirma.ElectronicSign.estamparFirmaElectronica')
+@patch('controllers.controllerFirma.ElectronicSign.verificaEsPdf', return_value=True)
+@patch('controllers.controllerFirma.requests.post')
+@patch('controllers.controllerFirma.requests.put')
+@patch('controllers.controllerFirma.uuid.uuid4')
+@patch.dict('os.environ', {'DOCUMENTOS_CRUD_URL': 'http://mocked.url/'})
+def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
+    mock_uuid4,
+    mock_put_http,
+    mock_post_http,
+    mock_verifica_pdf,
+    mock_estampar,
+    mock_doc_firmado,
+    mock_firmar,
+    mock_qr_url,
+    mock_hash,
+    mock_put_metadata,
+):
+    mock_uuid4.side_effect = ["tmp-uuid", "firma-uuid", "documento-uuid"]
+
+    mock_firmar.return_value = {
+        "codigo_autenticidad": "codigo",
+        "llaves": {"firma": "firma-encriptada", "llave_publica": "llave"},
+    }
+    mock_put_metadata.return_value = {
+        "table": "firma_electronica",
+        "firma_id": "firma-uuid",
+        "sk": "repositorio_documental#diplomas#documento_id#156103",
+        "repositorio_documental": "diplomas",
+        "documento_id": 156103,
+    }
+
+    response = postFirmaElectronicaV2([
+        {
+            "documento_id": 156103,
+            "repositorio_documental": "diplomas",
+            "nombre": "Diploma",
+            "metadatos": {},
+            "firmantes": [{"nombre": "FirmanteUnitario"}],
+            "representantes": [],
+            "descripcion": "Diploma digital",
+            "file": base64.b64encode(b"%PDF-1.7\n" * 130).decode("utf-8"),
+        }
+    ])
+
+    payload = json.loads(response.get_data(as_text=True))
+
+    assert response.status_code == 200
+    assert payload["firma_id"] == "firma-uuid"
+    assert payload["repositorio_documental"] == "diplomas"
+    assert payload["documento_id"] == 156103
+    assert "id" not in payload
+    assert "uuid_verificacion" not in payload
+    assert payload["uuid_documento"] == "documento-uuid"
+    assert payload["firma_id"] != payload["uuid_documento"]
+    assert "ruta_documento" not in payload
+    assert "s3_bucket" not in payload
+    assert payload["dynamodb"]["table"] == "firma_electronica"
+    assert payload["dynamodb"]["sk"] == "repositorio_documental#diplomas#documento_id#156103"
+    assert mock_estampar.call_args.args[0]["solo_qr"] is True
+    assert mock_estampar.call_args.args[0]["qr_url"] == "http://qr.test/token"
+    assert mock_estampar.call_args.args[0]["firma_id"] == "firma-uuid"
+    assert "uuid_verificacion" not in mock_estampar.call_args.args[0]
+    assert mock_estampar.call_args.args[0]["uuid_documento"] == "documento-uuid"
+    mock_post_http.assert_not_called()
+    mock_put_http.assert_not_called()
+    mock_hash.assert_called_once_with("pdf-firmado-base64")
+    mock_put_metadata.assert_called_once()
+
+
+@patch('controllers.controllerFirma.get_firma_metadata')
+def test_getFirmaElectronicaV2_consulta_por_llave_compuesta(mock_get_metadata):
+    mock_get_metadata.return_value = {
+        "firma_id": "firma-uuid",
+        "sk": "repositorio_documental#diplomas#documento_id#156103",
+        "repositorio_documental": "diplomas",
+        "documento_id": 156103,
+        "uuid_documento": "documento-uuid",
+    }
+
+    response = getFirmaElectronicaV2("firma-uuid")
+    payload = json.loads(response.get_data(as_text=True))
+
+    assert response.status_code == 200
+    assert payload["firma_id"] == "firma-uuid"
+    assert payload["sk"] == "repositorio_documental#diplomas#documento_id#156103"
+    assert payload["repositorio_documental"] == "diplomas"
+    assert payload["documento_id"] == 156103

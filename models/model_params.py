@@ -47,6 +47,24 @@ def define_parameters(api):
         'file': fields.String
     })]
 
+    upload_v2_model = [api.model('upload_v2_request', {
+        'IdTipoDocumento': fields.Integer,
+        'documento_id': fields.Integer(
+            description='Id del documento digital del cliente. Requerido para repositorio_documental diplomas'
+        ),
+        'repositorio_documental': fields.String(
+            description='Repositorio documental lógico. Valores soportados: nuxeo, diplomas'
+        ),
+        'nombre': fields.String,
+        'metadatos': fields.Nested(metadata_doc_crud_model),
+        'firmantes': fields.List(fields.Nested(firmantes_model)),
+        'representantes': fields.Raw(
+            description='Acepta lista de representantes o objeto vacio {} para compatibilidad'
+        ),
+        'descripcion': fields.String,
+        'file': fields.String
+    })]
+
     firma_multiple_model = [api.model('upload_resquest', {
         'IdTipoDocumento': fields.Integer,
         'nombre': fields.String,

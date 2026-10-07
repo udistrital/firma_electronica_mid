@@ -37,6 +37,10 @@ class ElectronicSign:
     def __init__(self):
         self.YFOOTER = 80
         self.YHEEADER = 100
+        # Separacion entre el ultimo elemento y la firma cuando se estampa en la misma pagina
+        self.ESPACIO_FIRMA = 15
+        # Elementos graficos que ocupan este porcentaje del alto (marcos, fondos) no cuentan como contenido
+        self.PROPORCION_FONDO = 0.8
 
     def build_qr_image(self, qr_url):
         if not qr_url:
@@ -126,39 +130,49 @@ class ElectronicSign:
 
             Return
             ----------
-            list : lista de posiciones en y de cada uno de los elementos de un pdf
+            list : posicion inferior en y de cada elemento de contenido (texto, imagenes, cuadros y lineas)
         """
-        rsrcmgr = PDFResourceManager()
-        laparams = LAParams()
-        device = PDFPageAggregator(rsrcmgr, laparams=laparams)
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
-        #pages = PDFPage.get_pages(pdfIn)
-        pages = extract_pages(pdfIn)
-        pages = list(pages)
+        pages = list(extract_pages(pdfIn))
         page = pages[len(pages)-1]
+        alto_fondo = page.height * self.PROPORCION_FONDO
 
-        yText = []
+        yItems = []
 
-        for lobj in page:
-            if isinstance(lobj, LTTextBox):
-                for text_line in lobj:
-                    for character in text_line:
-                        if isinstance(character,LTChar):    
-                            y= lobj.bbox[1]
-                            yText.append(y)
+        def recorrer(elementos):
+            for lobj in elementos:
+                if isinstance(lobj, LTTextBox):
+                    # El texto del pie de pagina no cuenta
+                    if lobj.bbox[1] > self.YFOOTER:
+                        yItems.append(lobj.bbox[1])
+                elif isinstance(lobj, (LTFigure, LTImage, LTCurve, LTChar)):
+                    # Lo que queda completo dentro del pie de pagina no cuenta
+                    if lobj.bbox[3] <= self.YFOOTER:
+                        continue
+                    # Marcos y fondos de pagina: se revisa su contenido, no el elemento
+                    if lobj.height >= alto_fondo:
+                        if isinstance(lobj, LTFigure):
+                            recorrer(lobj)
+                        continue
+                    yItems.append(lobj.bbox[1])
 
-        return yText
+        recorrer(page)
+        return yItems
 
     def signPosition(self, pdfIn):
-        yText = self.lastPageItems(pdfIn)
-        yText.reverse()
-
-        for i in range(0,len(yText)):
-            if yText[i] > 80:
-                y = yText[i]
-                break
-
+        """
+            Retorna la posicion en y del elemento mas bajo de la ultima pagina,
+            o el pie de pagina si no hay contenido
+        """
+        yItems = self.lastPageItems(pdfIn)
+        y = min(yItems) if yItems else self.YFOOTER
         return int(y)
+
+    def lastPageSize(self, pdfIn):
+        """
+            Retorna el ancho y alto de la ultima pagina, donde se estampa la firma
+        """
+        page = PdfReader(pdfIn).pages[-1]
+        return int(page.mediabox[2]), int(page.mediabox[3])
 
     def descrypt(self, codigo):
         """
@@ -208,9 +222,7 @@ class ElectronicSign:
         link_verificacion_externa = "Verificación para externos: " + get_verificacion_externa_url()
 
         x = 80
-        page = PdfReader(pdfIn).pages[0]
-        page_width = int(page.mediabox[2])
-        page_height = int(page.mediabox[3])
+        page_width, page_height = self.lastPageSize(pdfIn)
         y = yPosition
         line_height = 8
         section_gap = 4
@@ -278,10 +290,17 @@ class ElectronicSign:
         if qr_image:
             signPageSize = max(signPageSize, qr_size + 24)
 
-        if(yPosition - self.YFOOTER < signPageSize):
+        # En la misma pagina se deja un espacio con el ultimo elemento; en pagina nueva no hace falta
+        espacio = yPosition - self.ESPACIO_FIRMA - self.YFOOTER >= signPageSize
+        if espacio:
+            y = yPosition - self.ESPACIO_FIRMA
+        else:
             y = page_height - self.YHEEADER
 
+        # El lienzo debe medir lo mismo que la pagina; si no, pypdf recorta lo que quede
+        # por fuera de A4 vertical (p. ej. el QR en documentos horizontales)
         c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
         pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
         pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
 
@@ -292,6 +311,8 @@ class ElectronicSign:
             c.drawString(x + 20, cursor_y, "Firmado Digitalmente")
 
         cursor_y = cursor_y - 12
+        # Tope de la primera fila de texto (Vera 8): el QR no debe subir por encima
+        tope_primera_fila = cursor_y + 6
 
         for label, value in rows:
             label_lines = label.split("\n")
@@ -342,7 +363,8 @@ class ElectronicSign:
         c.drawText(verification_body)
 
         if qr_image:
-            qr_draw_y = max(self.YFOOTER + 7, verification_top_y - qr_size + (7 * line_height))
+            qr_draw_y = min(verification_top_y - qr_size + (7 * line_height), tope_primera_fila - qr_size)
+            qr_draw_y = max(self.YFOOTER + 7, qr_draw_y)
             c.drawImage(
                 qr_image,
                 qr_col_x,
@@ -356,10 +378,46 @@ class ElectronicSign:
         c.showPage()
         c.save()
 
-        espacio = yPosition - self.YFOOTER > signPageSize
         return espacio
 
     #--------- FIN NUEVA ESTAMPA --------
+
+    def signature_qr_only(self, pdfIn, yPosition, datos, archivoFirma):
+        qr_url = datos.get("qr_url")
+        qr_image = self.build_qr_image(qr_url)
+        if not qr_image:
+            raise ValueError("QR image could not be generated")
+
+        qr_size = 96
+        qr_margin = 36
+        verification_uuid = str(datos.get("firma_id") or datos.get("firma") or "").strip()
+
+        page_width, page_height = self.lastPageSize(pdfIn)
+
+        qr_x = max(qr_margin, page_width - qr_size - qr_margin)
+        qr_y = qr_margin + 18
+
+        c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
+        c.setFillColorRGB(1, 1, 1)
+        c.rect(qr_x - 8, qr_y - 22, qr_size + 16, qr_size + 30, fill=1, stroke=0)
+        c.drawImage(
+            qr_image,
+            qr_x,
+            qr_y,
+            width=qr_size,
+            height=qr_size,
+            preserveAspectRatio=True,
+            mask="auto"
+        )
+        if verification_uuid:
+            c.setFillColorRGB(0, 0, 0)
+            c.setFont("Helvetica", 5.5)
+            text_width = c.stringWidth(verification_uuid, "Helvetica", 5.5)
+            c.drawString(qr_x + ((qr_size - text_width) / 2), qr_y - 10, verification_uuid)
+        c.showPage()
+        c.save()
+        return True
 
     def signature(self, pdfIn, yPosition, datos, archivoFirma):
         """
@@ -408,11 +466,17 @@ class ElectronicSign:
 
 
 
-        if(yPosition - self.YFOOTER < signPageSize):
-            y = int(PdfReader(pdfIn).pages[0].mediabox[3] - self.YHEEADER)
+        page_width, page_height = self.lastPageSize(pdfIn)
+        # En la misma pagina se deja un espacio con el ultimo elemento; en pagina nueva no hace falta
+        espacio = yPosition - self.ESPACIO_FIRMA - self.YFOOTER >= signPageSize
+        if espacio:
+            y = yPosition - self.ESPACIO_FIRMA
+        else:
+            y = page_height - self.YHEEADER
 
 
         c = canvas.Canvas(archivoFirma)
+        c.setPageSize((page_width, page_height))
         # Create the signPdf from an image
         # c = canvas.Canvas('signPdf.pdf')
 
@@ -527,7 +591,6 @@ class ElectronicSign:
         c.showPage()
         c.save()
 
-        espacio = yPosition - self.YFOOTER > signPageSize
         return espacio
 
     def estamparUltimaPagina(self, pdfIn, archivoFirma, archivoFirmado):
@@ -607,7 +670,9 @@ class ElectronicSign:
             yPosition = self.signPosition(pdfIn) - 10
         # Generar firma visual
         with open(archivoAFirmar, "rb") as pdfIn:
-            if datos.get('tipo_firma'):
+            if datos.get("solo_qr"):
+                self.signature_qr_only(pdfIn, yPosition, datos, archivoFirma)
+            elif datos.get('tipo_firma'):
                 if datos['tipo_firma'] != 1:
                     yPosition = yPosition + 15
                 etapa = datos['tipo_firma']
@@ -616,7 +681,9 @@ class ElectronicSign:
                 suficienteEspacio = self.signature(pdfIn, yPosition, datos, archivoFirma)
         # Estampar en documento
         with open(archivoAFirmar, "rb") as pdfIn:
-            if suficienteEspacio:
+            if datos.get("solo_qr"):
+                self.estamparUltimaPagina(pdfIn, archivoFirma, archivoFirmado)
+            elif suficienteEspacio:
                 self.estamparUltimaPagina(pdfIn, archivoFirma, archivoFirmado)
             else:
                 self.estamparNuevaPagina(pdfIn, archivoFirma, archivoFirmado)

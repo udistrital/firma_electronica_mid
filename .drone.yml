@@ -11,29 +11,6 @@ workspace:
       - master
 
 steps:
-  - name: check_branch
-    image: jjvargass/qa_develoment:latest
-    commands:
-    - python /app/check_branch.py -H ${DRONE_GIT_HTTP_URL}
-    when:
-      branch:
-      - develop
-      - feature/*
-      - release/*
-      event:
-      - push
-
-  - name: check_commits
-    image: jjvargass/qa_develoment:latest
-    commands:
-    - python /app/check_commits.py
-    when:
-      branch:
-      - develop
-      - feature/*
-      - release/*
-      event:
-      - push
 
   - name: run_sonar_scanner
     image: sonarsource/sonar-scanner-cli:latest
@@ -56,7 +33,7 @@ steps:
       - push
 
   - name: publish_to_ecr_release
-    image: plugins/ecr
+    image: plugins/ecr:20.18.8
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
@@ -76,7 +53,7 @@ steps:
         - push
 
   - name: publish_to_ecr_prod
-    image: plugins/ecr
+    image: plugins/ecr:20.18.8
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
@@ -126,38 +103,3 @@ steps:
         - master
       event:
         - push
-
-  - name: notify_telegram
-    image: appleboy/drone-telegram
-    settings:
-      token:
-        from_secret: telegram_token
-      to:
-        from_secret: telegram_to
-      format: html
-      message: >
-        {{#success build.status}}
-          ✅ <a href="{{build.link}}">SUCCESS</a> <b>Build #{{build.number}}</b>
-          <b>type: </b><code>{{ build.event }}</code>
-          <b>Repo: </b><code>{{repo.name}}</code>
-          <b>Branch: </b><code>{{commit.branch}}</code>
-          <b>Commit: </b><a href="{{commit.link}}">{{truncate commit.sha 7}}</a>
-          <b>Autor: </b>{{commit.author}} <code>&#128526 </code>
-        {{else}}
-          ❌ <a href="{{build.link}}">FAILURE</a> <b>Build #{{build.number}}</b>
-          <b>type: </b><code>{{ build.event }}</code>
-          <b>Repo: </b><code>{{repo.name}}</code>
-          <b>Branch: </b><code>{{commit.branch}}</code>
-          <b>Commit: </b><a href="{{commit.link}}">{{truncate commit.sha 7}}</a>
-          <b>Autor: </b>{{commit.author}} <code>&#128549 </code>
-        {{/success}}
-    when:
-      branch:
-      - develop
-      - release/*
-      - master
-      event:
-      - push
-      status:
-      - failure
-      - success

@@ -31,6 +31,11 @@ QR_SECRET_NAME = _get_env("QR_SECRET_NAME")
 QR_SECRET_ACTIVE_VERSION = _get_env("QR_SECRET_ACTIVE_VERSION")
 QR_SECRET_VERSIONS_JSON = _get_env("QR_SECRET_VERSIONS_JSON")
 CORS_ORIGINS = _get_env("CORS_ORIGINS")
+AWS_REGION = _get_env("AWS_REGION", "us-east-1")
+AWS_ENDPOINT_URL = _get_env("AWS_ENDPOINT_URL")
+AWS_ACCESS_KEY_ID = _get_env("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = _get_env("AWS_SECRET_ACCESS_KEY")
+DIPLOMAS_DYNAMODB_FIRMA_TABLE = _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "firma_electronica")
 ENV = env
 
 if env == "dev":
@@ -111,3 +116,23 @@ def get_qr_secret_versions():
     if not raw:
         return {}
     return json.loads(raw)
+
+
+def get_aws_region():
+    return _get_env("AWS_REGION", "us-east-1")
+
+
+def get_aws_endpoint_url():
+    return _get_env("AWS_ENDPOINT_URL")
+
+
+def get_aws_access_key_id():
+    return _get_env("AWS_ACCESS_KEY_ID")
+
+
+def get_aws_secret_access_key():
+    return _get_env("AWS_SECRET_ACCESS_KEY")
+
+
+def get_diplomas_dynamodb_firma_table():
+    return _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "firma_electronica")
