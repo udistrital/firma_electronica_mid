@@ -508,6 +508,7 @@ def test_postFirmaElectronica_rechaza_firmante_sin_nombre():
 @patch('controllers.controllerFirma.ElectronicSign.verificaEsPdf', return_value=True)
 @patch('controllers.controllerFirma.requests.post')
 @patch('controllers.controllerFirma.requests.put')
+@patch('controllers.controllerFirma.finalize_pdfa', new=lambda path: (b'validated-final-pdf', b'<report/>'))
 @patch('controllers.controllerFirma.uuid.uuid4')
 @patch.dict('os.environ', {'DOCUMENTOS_CRUD_URL': 'http://mocked.url/'})
 def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
@@ -570,7 +571,7 @@ def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
     assert mock_estampar.call_args.args[0]["uuid_documento"] == "documento-uuid"
     mock_post_http.assert_not_called()
     mock_put_http.assert_not_called()
-    mock_hash.assert_called_once_with("pdf-firmado-base64")
+    mock_hash.assert_called_once_with(base64.b64encode(b"validated-final-pdf").decode("ascii"))
     mock_put_metadata.assert_called_once()
 
 
