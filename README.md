@@ -24,6 +24,13 @@ QR_SECRET_VERSIONS_JSON=[Mapa version->secreto]
 
 # Solo legado/local si se requiere compatibilidad
 QR_SIGNING_SECRET=[Fallback legado]
+
+# Firma v2 con DynamoDB
+AWS_REGION=us-east-1
+AWS_ENDPOINT_URL=http://host.docker.internal:4566
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+DIPLOMAS_DYNAMODB_FIRMA_TABLE=firma_electronica
 ```
 
 ## Ejecución local
@@ -40,3 +47,11 @@ docker compose up -d --build
 
 - `QR_SECRET_PROVIDER=dev`: usa el mapa local `QR_SECRET_VERSIONS_JSON`.
 - `QR_SECRET_PROVIDER=prod`: usa AWS Secrets Manager. La versión activa se resuelve con `AWSCURRENT` y la validación histórica usa el `VersionId` embebido en el QR.
+
+## Firma v2
+
+`POST /api/v2/firma_electronica` mantiene compatibilidad con `repositorio_documental=nuxeo` y agrega `repositorio_documental=diplomas` para firmar, estampar solo QR, registrar metadata inmutable en DynamoDB y devolver el PDF firmado en Base64. El sistema consumidor guarda el documento en su repositorio.
+
+`GET /api/v2/firma_electronica/{firma_id}` consulta la metadata por PK `firma_id`. La SK se genera como `repositorio_documental#{repositorio_documental}#documento_id#{documento_id}`. No existe endpoint `PUT/PATCH/DELETE` para esta tabla.
+
+Si se ejecuta el MID directamente en la máquina, `AWS_ENDPOINT_URL` debe ser `http://localhost:4566`.

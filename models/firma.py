@@ -1,12 +1,13 @@
 
 import base64
+import hashlib
 import logging
+
 from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
 
 def firmar(plain_text):
     try:
@@ -20,12 +21,6 @@ def firmar(plain_text):
         public_key = private_key.public_key()
 
         #serializacion de llaves 
-        pem_privada = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-
         pem_publica = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -40,12 +35,11 @@ def firmar(plain_text):
             algorithm=hashes.SHA256()
         )
 
-        mascara = abs(hash(str(pem_publica)))
+        mascara = hashlib.sha256(pem_publica).hexdigest()
         objeto_firmado = {
             "codigo_autenticidad": str(mascara),
             "llaves": {
                 "llave_publica": base64.urlsafe_b64encode(pem_publica).decode("utf-8"),
-                "llave_privada": base64.urlsafe_b64encode(pem_privada).decode("utf-8"),
                 "firma": base64.urlsafe_b64encode(signature).decode("utf-8")
             }
         }
