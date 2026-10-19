@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 from datetime import datetime, timezone
 
 import boto3
@@ -60,6 +61,8 @@ def put_firma_metadata(item):
         "hash_sha256": {"S": item.get("hash_sha256", "")},
         "qr_url_segura": {"S": item.get("qr_url_segura") or ""},
     }
+    if item.get("pdfa"):
+        dynamodb_item["pdfa"] = {"S": json.dumps(item["pdfa"])}
 
     try:
         _aws_client("dynamodb").put_item(

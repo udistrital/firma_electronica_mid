@@ -1,14 +1,31 @@
-import logging, json, requests, os, base64
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
+import base64
+import hashlib
+import json
+import logging
+import os
+import uuid
+
+import requests
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import Response, request
+
+from conf.conf import (
+    get_documentos_crud_url,
+    get_gestor_documental_url,
+    get_qr_base_url,
+)
 from models.firma import firmar
 from models.firma_electronica import ElectronicSign
+from services.document_store import (
+    calculate_base64_sha256,
+    get_firma_metadata,
+    put_firma_metadata,
+    utc_now_iso,
+)
+from services.pdfa import finalize_pdfa
 from services.qr_security import build_qr_url, validate_qr_token
-from services.document_store import calculate_base64_sha256, get_firma_metadata, put_firma_metadata, utc_now_iso
-from conf.conf import get_documentos_crud_url, get_gestor_documental_url, get_qr_base_url
-import uuid
 
 
 def _get_qr_token(data):
@@ -403,7 +420,9 @@ def postFirmaElectronicaV2(data):
                 "solo_qr": True,
             }
             electronicSign.estamparFirmaElectronica(datos, archivoAFirmar, archivoFirma, archivoFirmado)
-            docFirmadoBase64 = str(electronicSign.docFirmadoBase64(archivoFirmado))
+            # Last visual change precedes PDF/A validation, RSA and SHA-256.
+            final_pdf, _pdfa_report = finalize_pdfa(archivoFirmado)
+            docFirmadoBase64 = base64.b64encode(final_pdf).decode("ascii")
             firma_electronica = firmar(docFirmadoBase64)
             hash_sha256 = calculate_base64_sha256(docFirmadoBase64)
             jsonFirmantes = _build_storage_signature_payload(item["firmantes"], item["representantes"])
@@ -421,6 +440,11 @@ def postFirmaElectronicaV2(data):
                 "uuid_documento": uuid_documento,
                 "hash_sha256": hash_sha256,
                 "qr_url_segura": qr_url,
+                "pdfa": {
+                    "flavour": "2b",
+                    "validator": "veraPDF",
+                    "report_sha256": hashlib.sha256(_pdfa_report).hexdigest(),
+                },
             }
             dynamo_ref = put_firma_metadata(dynamo_item)
 
@@ -459,6 +483,13 @@ def getFirmaElectronicaV2(firma_id, sk=None):
         item = get_firma_metadata(firma_id, sk)
         if not item:
             return Response(json.dumps({'Status':'404','Error':'firma_electronica not found'}), status=404, mimetype='application/json')
+        # Historical records remain untouched; private keys never leave this API.
+        item = dict(item)
+        keys = item.get("llaves")
+        if keys:
+            keys = json.loads(keys) if isinstance(keys, str) else dict(keys)
+            keys.pop("llave_privada", None)
+            item["llaves"] = json.dumps(keys) if isinstance(item["llaves"], str) else keys
         return Response(json.dumps(item), status=200, mimetype='application/json')
     except Exception as e:
         logging.error("type error: " + str(e))
