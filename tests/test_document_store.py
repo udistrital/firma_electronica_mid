@@ -1,9 +1,15 @@
+import json
 from unittest.mock import patch
 
 import pytest
+from botocore.exceptions import ClientError
 
 from conf.conf import get_diplomas_dynamodb_firma_table
-from services.document_store import get_firma_metadata, put_firma_metadata
+from services.document_store import (
+    _from_dynamodb_value,
+    get_firma_metadata,
+    put_firma_metadata,
+)
 
 
 @pytest.mark.parametrize("value", [None, "", "   \t\n"])
@@ -31,13 +37,35 @@ def test_configured_table_used_for_write_get_and_query(monkeypatch):
         "documento_id": 7, "codigo_autenticidad": "code", "llaves": "{}",
         "firmantes": "[]", "firma_encriptada": "signed", "fecha_creacion": "now",
         "uuid_documento": "document",
+        "hash_sha256": "digest", "qr_url_segura": "https://example.test/qr",
+        "activo": False, "pdfa": {"flavour": "2b"},
     }
     with patch("services.document_store._aws_client") as client:
-        client.return_value.get_item.return_value = {"Item": {"firma_id": {"S": "signature"}}}
-        client.return_value.query.return_value = {"Items": [{"firma_id": {"S": "signature"}}]}
         reference = put_firma_metadata(item)
-        assert get_firma_metadata("signature", reference["sk"]) == {"firma_id": "signature"}
-        assert get_firma_metadata("signature") == {"firma_id": "signature"}
+        stored = client.return_value.put_item.call_args.kwargs
+        assert stored["Item"]["PK"] == {"S": "signature"}
+        assert stored["Item"]["SK"] == {"S": reference["sk"]}
+        assert stored["Item"]["sk"] == stored["Item"]["SK"]
+        assert stored["Item"]["firma_id"] == stored["Item"]["PK"]
+        assert stored["ConditionExpression"] == "attribute_not_exists(PK) AND attribute_not_exists(SK)"
+        decoded = {key: _from_dynamodb_value(value) for key, value in stored["Item"].items()}
+        assert json.loads(decoded.pop("pdfa")) == item["pdfa"]
+        expected = {**item, "documento_id": "7"}
+        expected.pop("pdfa")
+        assert decoded == {**expected, "PK": "signature", "SK": reference["sk"], "sk": reference["sk"]}
+        # Read back the actual persisted representation, without exposing storage keys.
+        client.return_value.get_item.return_value = {"Item": stored["Item"]}
+        client.return_value.query.return_value = {"Items": [stored["Item"]]}
+        expected_response = {**expected, "pdfa": json.dumps(item["pdfa"]), "sk": reference["sk"]}
+        assert get_firma_metadata("signature", reference["sk"]) == expected_response
+        assert client.return_value.get_item.call_args.kwargs["Key"] == {
+            "PK": {"S": "signature"}, "SK": {"S": reference["sk"]},
+        }
+        assert get_firma_metadata("signature") == expected_response
+        query = client.return_value.query.call_args.kwargs
+        assert query["KeyConditionExpression"] == "PK = :firma_id"
+        assert query["ExpressionAttributeValues"] == {":firma_id": {"S": "signature"}}
+        assert set(reference) == {"table", "firma_id", "sk", "repositorio_documental", "documento_id"}
         assert reference["table"] == "test-diplomas-metadata"
         for method in ("put_item", "get_item", "query"):
             assert getattr(client.return_value, method).call_args.kwargs["TableName"] == reference["table"]
@@ -46,6 +74,19 @@ def test_configured_table_used_for_write_get_and_query(monkeypatch):
     monkeypatch.delenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE")
     with pytest.raises(RuntimeError):
         get_diplomas_dynamodb_firma_table()
+
+
+def test_duplicate_signature_is_rejected(monkeypatch):
+    monkeypatch.setenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "test-diplomas-metadata")
+    item = dict.fromkeys(("firma_id", "repositorio_documental", "documento_id",
+                          "codigo_autenticidad", "llaves", "firmantes",
+                          "firma_encriptada", "fecha_creacion", "uuid_documento"), "value")
+    error = ClientError({"Error": {"Code": "ConditionalCheckFailedException"}}, "PutItem")
+    with patch("services.document_store._aws_client") as client:
+        client.return_value.put_item.side_effect = error
+        with pytest.raises(ValueError, match="already exists"):
+            put_firma_metadata(item)
+        assert client.return_value.put_item.call_count == 1
 
 
 def test_metadata_endpoint_returns_controlled_configuration_error(monkeypatch):

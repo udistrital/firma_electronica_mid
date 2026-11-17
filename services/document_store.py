@@ -47,6 +47,8 @@ def put_firma_metadata(item):
     repositorio_documental = item["repositorio_documental"]
     sk = build_document_sk(repositorio_documental, item["documento_id"])
     dynamodb_item = {
+        "PK": {"S": str(item["firma_id"])},
+        "SK": {"S": sk},
         "firma_id": {"S": item["firma_id"]},
         "sk": {"S": sk},
         "repositorio_documental": {"S": repositorio_documental},
@@ -68,7 +70,7 @@ def put_firma_metadata(item):
         _aws_client("dynamodb").put_item(
             TableName=table_name,
             Item=dynamodb_item,
-            ConditionExpression="attribute_not_exists(firma_id) AND attribute_not_exists(sk)",
+            ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
         )
     except ClientError as exc:
         if exc.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
@@ -107,19 +109,19 @@ def get_firma_metadata(firma_id, sk=None):
         response = _aws_client("dynamodb").get_item(
             TableName=table_name,
             Key={
-                "firma_id": {"S": str(firma_id)},
-                "sk": {"S": str(sk)},
+                "PK": {"S": str(firma_id)},
+                "SK": {"S": str(sk)},
             },
             ConsistentRead=True,
         )
         item = response.get("Item")
         if not item:
             return None
-        return {key: _from_dynamodb_value(value) for key, value in item.items()}
+        return {key: _from_dynamodb_value(value) for key, value in item.items() if key not in ("PK", "SK")}
 
     response = _aws_client("dynamodb").query(
         TableName=table_name,
-        KeyConditionExpression="firma_id = :firma_id",
+        KeyConditionExpression="PK = :firma_id",
         ExpressionAttributeValues={":firma_id": {"S": str(firma_id)}},
         ConsistentRead=True,
         Limit=1,
@@ -127,7 +129,7 @@ def get_firma_metadata(firma_id, sk=None):
     items = response.get("Items", [])
     if not items:
         return None
-    return {key: _from_dynamodb_value(value) for key, value in items[0].items()}
+    return {key: _from_dynamodb_value(value) for key, value in items[0].items() if key not in ("PK", "SK")}
 
 
 def utc_now_iso():
