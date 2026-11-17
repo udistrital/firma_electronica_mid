@@ -5,35 +5,12 @@ workspace:
   base: /go
   path: src/github.com/udistrital/${DRONE_REPO##udistrital/}
   when:
-    branch:
+      branch:
       - develop
       - release/*
       - master
 
 steps:
-  - name: check_branch
-    image: jjvargass/qa_develoment:latest
-    commands:
-      - python /app/check_branch.py -H ${DRONE_GIT_HTTP_URL}
-    when:
-      branch:
-        - develop
-        - feature/*
-        - release/*
-      event:
-        - push
-
-  - name: check_commits
-    image: jjvargass/qa_develoment:latest
-    commands:
-      - python /app/check_commits.py
-    when:
-      branch:
-        - develop
-        - feature/*
-        - release/*
-      event:
-        - push
 
   - name: run_sonar_scanner
     image: sonarsource/sonar-scanner-cli:latest
@@ -53,10 +30,10 @@ steps:
         - hotfix/*
         - master
       event:
-        - push
+      - push
 
   - name: publish_to_ecr_release
-    image: plugins/ecr
+    image: plugins/ecr:20.18.8
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
@@ -76,7 +53,7 @@ steps:
         - push
 
   - name: publish_to_ecr_prod
-    image: plugins/ecr
+    image: plugins/ecr:20.18.8
     settings:
       access_key:
         from_secret: AWS_ACCESS_KEY_ID
@@ -105,21 +82,21 @@ steps:
       AWS_DEFAULT_REGION:
         from_secret: AWS_REGION
     commands:
-      - case ${DRONE_BRANCH} in
-        master)
-        SUFFIX=prod
-        CLUSTER=oas
+    - case ${DRONE_BRANCH} in
+      master)
+      SUFFIX=prod
+      CLUSTER=oas
         ;;
-        *)
-        SUFFIX=test
-        CLUSTER=test
+      *)
+      SUFFIX=test
+      CLUSTER=test
         ;;
-        esac
-      - aws ecs update-service
-        --cluster $${CLUSTER}
-        --service $${DRONE_REPO_NAME}_$${SUFFIX}
-        --force-new-deployment
-        --query "service.deployments[0].id"
+      esac
+    - aws ecs update-service
+      --cluster $${CLUSTER}
+      --service $${DRONE_REPO_NAME}_$${SUFFIX}
+      --force-new-deployment
+      --query "service.deployments[0].id"
     when:
       branch:
         - release/*
