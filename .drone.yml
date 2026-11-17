@@ -5,7 +5,7 @@ workspace:
   base: /go
   path: src/github.com/udistrital/${DRONE_REPO##udistrital/}
   when:
-      branch:
+    branch:
       - develop
       - release/*
       - master
@@ -14,26 +14,26 @@ steps:
   - name: check_branch
     image: jjvargass/qa_develoment:latest
     commands:
-    - python /app/check_branch.py -H ${DRONE_GIT_HTTP_URL}
+      - python /app/check_branch.py -H ${DRONE_GIT_HTTP_URL}
     when:
       branch:
-      - develop
-      - feature/*
-      - release/*
+        - develop
+        - feature/*
+        - release/*
       event:
-      - push
+        - push
 
   - name: check_commits
     image: jjvargass/qa_develoment:latest
     commands:
-    - python /app/check_commits.py
+      - python /app/check_commits.py
     when:
       branch:
-      - develop
-      - feature/*
-      - release/*
+        - develop
+        - feature/*
+        - release/*
       event:
-      - push
+        - push
 
   - name: run_sonar_scanner
     image: sonarsource/sonar-scanner-cli:latest
@@ -53,7 +53,7 @@ steps:
         - hotfix/*
         - master
       event:
-      - push
+        - push
 
   - name: publish_to_ecr_release
     image: plugins/ecr
@@ -105,59 +105,24 @@ steps:
       AWS_DEFAULT_REGION:
         from_secret: AWS_REGION
     commands:
-    - case ${DRONE_BRANCH} in
-      master)
-      SUFFIX=prod
-      CLUSTER=oas
+      - case ${DRONE_BRANCH} in
+        master)
+        SUFFIX=prod
+        CLUSTER=oas
         ;;
-      *)
-      SUFFIX=test
-      CLUSTER=test
+        *)
+        SUFFIX=test
+        CLUSTER=test
         ;;
-      esac
-    - aws ecs update-service
-      --cluster $${CLUSTER}
-      --service $${DRONE_REPO_NAME}_$${SUFFIX}
-      --force-new-deployment
-      --query "service.deployments[0].id"
+        esac
+      - aws ecs update-service
+        --cluster $${CLUSTER}
+        --service $${DRONE_REPO_NAME}_$${SUFFIX}
+        --force-new-deployment
+        --query "service.deployments[0].id"
     when:
       branch:
         - release/*
         - master
       event:
         - push
-
-  - name: notify_telegram
-    image: appleboy/drone-telegram
-    settings:
-      token:
-        from_secret: telegram_token
-      to:
-        from_secret: telegram_to
-      format: html
-      message: >
-        {{#success build.status}}
-          ✅ <a href="{{build.link}}">SUCCESS</a> <b>Build #{{build.number}}</b>
-          <b>type: </b><code>{{ build.event }}</code>
-          <b>Repo: </b><code>{{repo.name}}</code>
-          <b>Branch: </b><code>{{commit.branch}}</code>
-          <b>Commit: </b><a href="{{commit.link}}">{{truncate commit.sha 7}}</a>
-          <b>Autor: </b>{{commit.author}} <code>&#128526 </code>
-        {{else}}
-          ❌ <a href="{{build.link}}">FAILURE</a> <b>Build #{{build.number}}</b>
-          <b>type: </b><code>{{ build.event }}</code>
-          <b>Repo: </b><code>{{repo.name}}</code>
-          <b>Branch: </b><code>{{commit.branch}}</code>
-          <b>Commit: </b><a href="{{commit.link}}">{{truncate commit.sha 7}}</a>
-          <b>Autor: </b>{{commit.author}} <code>&#128549 </code>
-        {{/success}}
-    when:
-      branch:
-      - develop
-      - release/*
-      - master
-      event:
-      - push
-      status:
-      - failure
-      - success
