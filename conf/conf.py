@@ -35,7 +35,7 @@ AWS_REGION = _get_env("AWS_REGION", "us-east-1")
 AWS_ENDPOINT_URL = _get_env("AWS_ENDPOINT_URL")
 AWS_ACCESS_KEY_ID = _get_env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = _get_env("AWS_SECRET_ACCESS_KEY")
-DIPLOMAS_DYNAMODB_FIRMA_TABLE = _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "firma_electronica")
+DIPLOMAS_DYNAMODB_FIRMA_TABLE = _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE")
 ENV = env
 
 if env == "dev":
@@ -135,4 +135,9 @@ def get_aws_secret_access_key():
 
 
 def get_diplomas_dynamodb_firma_table():
-    return _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "firma_electronica")
+    table_name = _get_env("DIPLOMAS_DYNAMODB_FIRMA_TABLE")
+    if not table_name:
+        raise RuntimeError(
+            "DIPLOMAS_DYNAMODB_FIRMA_TABLE is required for diplomas DynamoDB operations"
+        )
+    return table_name
