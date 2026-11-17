@@ -91,6 +91,7 @@ def test_historical_metadata_response_hides_private_key():
 @pytest.mark.skipif(os.getenv("RUN_PDFA_INTEGRATION") != "1", reason="set RUN_PDFA_INTEGRATION=1 for real Ghostscript/veraPDF integration")
 def test_final_diploma_pdfa_visual_qr_rsa_and_dynamodb(tmp_path, monkeypatch):
     """Real stamping/conversion/validation/signing; only persistence is mocked."""
+    monkeypatch.setenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "test-diplomas-metadata")
     import fitz
     from PIL import Image, ImageChops, ImageStat
 
