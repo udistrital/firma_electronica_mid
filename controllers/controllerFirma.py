@@ -478,6 +478,26 @@ def postFirmaElectronicaV2(data):
                 pass
 
 
+def getMetadatosReporteDiplomas(data):
+    """Consulta interna de enlaces QR por UUID para Diplomas."""
+    from services.document_store import get_firmas_metadata_por_uuid
+
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer ") or not authorization[7:].strip():
+        return Response(json.dumps({"Error": "Authorization Bearer requerido"}), status=401, mimetype="application/json")
+    if not isinstance(data, dict):
+        return Response(json.dumps({"Error": "Cuerpo JSON inválido"}), status=400, mimetype="application/json")
+    try:
+        firmas = get_firmas_metadata_por_uuid(data.get("uuid_documentos"))
+        return Response(json.dumps({"firmas": firmas}), status=200, mimetype="application/json")
+    except ValueError as error:
+        status = 409 if str(error).startswith("múltiples firmas") else 400
+        return Response(json.dumps({"Error": str(error)}), status=status, mimetype="application/json")
+    except Exception:
+        logging.getLogger(__name__).exception("Error al consultar metadatos para reporte de diplomas")
+        return Response(json.dumps({"Error": "No fue posible consultar metadatos del reporte"}), status=500, mimetype="application/json")
+
+
 def getFirmaElectronicaV2(firma_id, sk=None):
     try:
         item = get_firma_metadata(firma_id, sk)

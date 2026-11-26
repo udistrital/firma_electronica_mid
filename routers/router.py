@@ -92,6 +92,13 @@ class FirmaElectronicaV2Resource(Resource):
         return controllerFirma.postFirmaElectronicaV2(body)
 
 
+@ns_v2.route("/firma_electronica/reporte")
+class FirmaElectronicaReporteResource(Resource):
+    def post(self):
+        """Consulta interna de enlaces QR para el reporte de Diplomas."""
+        return controllerFirma.getMetadatosReporteDiplomas(request.get_json(silent=True))
+
+
 @ns_v2.route("/firma_electronica/<string:firma_id>")
 class FirmaElectronicaV2MetadataResource(Resource):
 
