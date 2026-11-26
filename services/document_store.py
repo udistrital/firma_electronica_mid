@@ -44,10 +44,12 @@ def calculate_base64_sha256(base64_pdf):
 
 def put_firma_metadata(item):
     table_name = get_diplomas_dynamodb_firma_table()
+    if item["firma_id"] != item["uuid_documento"]:
+        raise ValueError("firma_id must match uuid_documento for diplomas metadata")
     repositorio_documental = item["repositorio_documental"]
     sk = build_document_sk(repositorio_documental, item["documento_id"])
     dynamodb_item = {
-        "PK": {"S": str(item["firma_id"])},
+        "PK": {"S": str(item["uuid_documento"])},
         "SK": {"S": sk},
         "firma_id": {"S": item["firma_id"]},
         "sk": {"S": sk},
@@ -150,33 +152,36 @@ def get_firmas_metadata_por_uuid(document_uuids):
               "qr_url_segura", "codigo_autenticidad", "hash_sha256", "activo")
     names = {f"#f{i}": field for i, field in enumerate(fields)}
     aliases = {field: alias for alias, field in names.items()}
-    values = {":repo": {"S": "diplomas"}, ":activo": {"BOOL": True}}
-    values.update({f":u{i}": {"S": value} for i, value in enumerate(wanted)})
-    params = {
-        "TableName": get_diplomas_dynamodb_firma_table(),
-        "FilterExpression": (f"{aliases['repositorio_documental']} = :repo AND "
-                             f"{aliases['activo']} = :activo AND "
-                             f"{aliases['uuid_documento']} IN ({', '.join(f':u{i}' for i in range(len(wanted)))})"),
-        "ExpressionAttributeNames": names,
-        "ExpressionAttributeValues": values,
-        "ProjectionExpression": ", ".join(names),
-        "ConsistentRead": True,
-    }
+    table_name = get_diplomas_dynamodb_firma_table()
     client = _aws_client("dynamodb")
     found = {}
-    while True:
-        page = client.scan(**params)
-        for raw in page.get("Items", []):
-            item = {key: _from_dynamodb_value(value) for key, value in raw.items() if key in fields}
-            identifier = item.get("uuid_documento")
-            if identifier not in wanted or item.get("repositorio_documental") != "diplomas" or item.get("activo") is not True:
-                continue
-            if identifier in found:
-                raise ValueError("múltiples firmas activas para un UUID de documento")
-            item["documento_id"] = int(item["documento_id"])
-            found[identifier] = item
-        key = page.get("LastEvaluatedKey")
-        if not key:
-            break
-        params["ExclusiveStartKey"] = key
+    for identifier in wanted:
+        params = {
+            "TableName": table_name,
+            "KeyConditionExpression": "PK = :uuid_documento",
+            "ExpressionAttributeNames": names,
+            "ExpressionAttributeValues": {
+                ":uuid_documento": {"S": identifier},
+                ":repo": {"S": "diplomas"},
+                ":activo": {"BOOL": True},
+            },
+            "FilterExpression": (f"{aliases['repositorio_documental']} = :repo AND "
+                                 f"{aliases['activo']} = :activo"),
+            "ProjectionExpression": ", ".join(names),
+            "ConsistentRead": True,
+        }
+        while True:
+            page = client.query(**params)
+            for raw in page.get("Items", []):
+                item = {key: _from_dynamodb_value(value) for key, value in raw.items() if key in fields}
+                if item.get("uuid_documento") != identifier or item.get("repositorio_documental") != "diplomas" or item.get("activo") is not True:
+                    continue
+                if identifier in found:
+                    raise ValueError("múltiples firmas activas para un UUID de documento")
+                item["documento_id"] = int(item["documento_id"])
+                found[identifier] = item
+            key = page.get("LastEvaluatedKey")
+            if not key:
+                break
+            params["ExclusiveStartKey"] = key
     return [found[value] for value in wanted if value in found]

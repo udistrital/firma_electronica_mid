@@ -49,20 +49,25 @@ class ReportMetadataTests(unittest.TestCase):
         self.setenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "report-test-table")
         first_key = {"PK": {"S": "last-signature"}}
         with patch("services.document_store._aws_client") as client:
-            client.return_value.scan.side_effect = [
+            client.return_value.query.side_effect = [
                 {"Items": [], "LastEvaluatedKey": first_key},
-                {"Items": [raw(UUID2), raw(UUID1, llaves='{"llave_privada":"must-not-export"}', PK="storage-key"),
+                {"Items": [raw(UUID1, llaves='{"llave_privada":"must-not-export"}', PK="storage-key"),
                            raw(UUID1, activo=False), raw(UUID1, repositorio_documental="other"), raw("unrequested")]},
+                {"Items": [raw(UUID2)]},
             ]
             result = get_firmas_metadata_por_uuid([UUID1, UUID2, UUID1])
-            calls = client.return_value.scan.call_args_list
+            calls = client.return_value.query.call_args_list
         assert [item["uuid_documento"] for item in result] == [UUID1, UUID2]
         assert result[0]["documento_id"] == 7
         assert result[0]["qr_url_segura"] == "https://verify.example.test/?token=original&context=diploma"
         assert all("llaves" not in item and "PK" not in item for item in result)
-        assert len(calls) == 2
+        assert len(calls) == 3
         assert calls[1].kwargs["ExclusiveStartKey"] == first_key
         assert "ExclusiveStartKey" not in calls[0].kwargs
+        assert "ExclusiveStartKey" not in calls[2].kwargs
+        assert [call.kwargs["ExpressionAttributeValues"][":uuid_documento"]["S"] for call in calls] == [UUID1, UUID1, UUID2]
+        assert all(call.kwargs["KeyConditionExpression"] == "PK = :uuid_documento" for call in calls)
+        client.return_value.scan.assert_not_called()
         assert all(call.kwargs["ConsistentRead"] for call in calls)
         assert all(call.kwargs["TableName"] == "report-test-table" for call in calls)
         assert "llaves" not in calls[0].kwargs["ExpressionAttributeNames"].values()
@@ -71,7 +76,7 @@ class ReportMetadataTests(unittest.TestCase):
     def test_ambiguous_uuid_is_rejected(self):
         self.setenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "report-test-table")
         with patch("services.document_store._aws_client") as client:
-            client.return_value.scan.return_value = {"Items": [raw(), raw(firma_id="other-signature")]}
+            client.return_value.query.return_value = {"Items": [raw(), raw(firma_id="other-signature")]}
             response = getMetadatosReporteDiplomas({"uuid_documentos": [UUID1]})
         assert response.status_code == 409
 
@@ -85,7 +90,7 @@ class ReportMetadataTests(unittest.TestCase):
             unauthorized = browser.post("/api/v2/firma_electronica/reporte", json={"uuid_documentos": [UUID1]})
             assert unauthorized.status_code == 401
             client.assert_not_called()
-            client.return_value.scan.return_value = {"Items": [raw(llaves="private", SK="storage")]}
+            client.return_value.query.return_value = {"Items": [raw(llaves="private", SK="storage")]}
             response = browser.post("/api/v2/firma_electronica/reporte", json={"uuid_documentos": [UUID1]}, headers={"Authorization": "Bearer test-token"})
         assert response.status_code == 200
         payload = response.get_json()
