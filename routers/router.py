@@ -79,6 +79,15 @@ class VerifyFirmaResource(Resource):
         body = request.get_json()
         return controllerFirma.postVerify(body)
 
+@ns_v1.route("/verificar_firma")
+class VerificarFirmaResource(Resource):
+    @cross_origin(**api_cors_config)
+    def post(self):
+        """Verifica PDF y antivirus conservando contrato del cliente de verificación."""
+        from controllers.verification import verify_manual
+        return verify_manual(request.get_json(silent=True), controllerFirma.postVerify)
+
+
 @ns_v2.route("/firma_electronica")
 class FirmaElectronicaV2Resource(Resource):
 
