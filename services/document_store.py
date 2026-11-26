@@ -134,3 +134,49 @@ def get_firma_metadata(firma_id, sk=None):
 
 def utc_now_iso():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def get_firmas_metadata_por_uuid(document_uuids):
+    """Consulta interna por lotes; retorna el enlace QR original sin crear tokens."""
+    from uuid import UUID
+
+    if not isinstance(document_uuids, list) or not document_uuids or len(document_uuids) > 100:
+        raise ValueError("se requieren entre 1 y 100 UUID de documento")
+    try:
+        wanted = list(dict.fromkeys(str(UUID(value)) for value in document_uuids))
+    except (ValueError, TypeError, AttributeError):
+        raise ValueError("UUID de documento inválido") from None
+    fields = ("firma_id", "documento_id", "uuid_documento", "repositorio_documental",
+              "qr_url_segura", "codigo_autenticidad", "hash_sha256", "activo")
+    names = {f"#f{i}": field for i, field in enumerate(fields)}
+    aliases = {field: alias for alias, field in names.items()}
+    values = {":repo": {"S": "diplomas"}, ":activo": {"BOOL": True}}
+    values.update({f":u{i}": {"S": value} for i, value in enumerate(wanted)})
+    params = {
+        "TableName": get_diplomas_dynamodb_firma_table(),
+        "FilterExpression": (f"{aliases['repositorio_documental']} = :repo AND "
+                             f"{aliases['activo']} = :activo AND "
+                             f"{aliases['uuid_documento']} IN ({', '.join(f':u{i}' for i in range(len(wanted)))})"),
+        "ExpressionAttributeNames": names,
+        "ExpressionAttributeValues": values,
+        "ProjectionExpression": ", ".join(names),
+        "ConsistentRead": True,
+    }
+    client = _aws_client("dynamodb")
+    found = {}
+    while True:
+        page = client.scan(**params)
+        for raw in page.get("Items", []):
+            item = {key: _from_dynamodb_value(value) for key, value in raw.items() if key in fields}
+            identifier = item.get("uuid_documento")
+            if identifier not in wanted or item.get("repositorio_documental") != "diplomas" or item.get("activo") is not True:
+                continue
+            if identifier in found:
+                raise ValueError("múltiples firmas activas para un UUID de documento")
+            item["documento_id"] = int(item["documento_id"])
+            found[identifier] = item
+        key = page.get("LastEvaluatedKey")
+        if not key:
+            break
+        params["ExclusiveStartKey"] = key
+    return [found[value] for value in wanted if value in found]
