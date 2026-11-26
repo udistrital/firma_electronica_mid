@@ -798,6 +798,9 @@ def resolveSecureQrData(data):
     try:
         token = _get_qr_token(data)
         payload = validate_qr_token(token)
+        if payload.get("repositorio_documental") == "diplomas":
+            from controllers.verification import resolve_diploma_qr
+            return resolve_diploma_qr(payload, token, include_file=False)
         resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(payload["firma_id"]))
         if resFirma.status_code != 200:
             return Response(json.dumps({'Status':'404','Error':'firma_electronica not found'}), status=404, mimetype='application/json')
@@ -840,6 +843,9 @@ def resolveSecureQrFile(data):
     try:
         token = _get_qr_token(data)
         payload = validate_qr_token(token)
+        if payload.get("repositorio_documental") == "diplomas":
+            from controllers.verification import resolve_diploma_qr
+            return resolve_diploma_qr(payload, token, include_file=True)
         resFirma = requests.get(get_documentos_crud_url()+'firma_electronica/'+str(payload["firma_id"]))
         if resFirma.status_code != 200:
             return Response(json.dumps({'Status':'404','Error':'firma_electronica not found'}), status=404, mimetype='application/json')
