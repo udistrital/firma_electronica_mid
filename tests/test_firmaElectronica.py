@@ -523,7 +523,7 @@ def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
     mock_hash,
     mock_put_metadata,
 ):
-    mock_uuid4.side_effect = ["tmp-uuid", "firma-uuid", "documento-uuid"]
+    mock_uuid4.side_effect = ["tmp-uuid", "documento-uuid"]
 
     mock_firmar.return_value = {
         "codigo_autenticidad": "codigo",
@@ -531,7 +531,7 @@ def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
     }
     mock_put_metadata.return_value = {
         "table": "firma_electronica",
-        "firma_id": "firma-uuid",
+        "firma_id": "documento-uuid",
         "sk": "repositorio_documental#diplomas#documento_id#156103",
         "repositorio_documental": "diplomas",
         "documento_id": 156103,
@@ -553,20 +553,20 @@ def test_postFirmaElectronicaV2_s3_diplomas_estampa_solo_qr_y_guarda_metadata(
     payload = json.loads(response.get_data(as_text=True))
 
     assert response.status_code == 200
-    assert payload["firma_id"] == "firma-uuid"
+    assert payload["firma_id"] == "documento-uuid"
     assert payload["repositorio_documental"] == "diplomas"
     assert payload["documento_id"] == 156103
     assert "id" not in payload
     assert "uuid_verificacion" not in payload
     assert payload["uuid_documento"] == "documento-uuid"
-    assert payload["firma_id"] != payload["uuid_documento"]
+    assert payload["firma_id"] == payload["uuid_documento"]
     assert "ruta_documento" not in payload
     assert "s3_bucket" not in payload
     assert payload["dynamodb"]["table"] == "firma_electronica"
     assert payload["dynamodb"]["sk"] == "repositorio_documental#diplomas#documento_id#156103"
     assert mock_estampar.call_args.args[0]["solo_qr"] is True
     assert mock_estampar.call_args.args[0]["qr_url"] == "http://qr.test/token"
-    assert mock_estampar.call_args.args[0]["firma_id"] == "firma-uuid"
+    assert mock_estampar.call_args.args[0]["firma_id"] == "documento-uuid"
     assert "uuid_verificacion" not in mock_estampar.call_args.args[0]
     assert mock_estampar.call_args.args[0]["uuid_documento"] == "documento-uuid"
     mock_post_http.assert_not_called()

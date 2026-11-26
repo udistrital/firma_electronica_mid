@@ -36,7 +36,7 @@ def test_configured_table_used_for_write_get_and_query(monkeypatch):
         "firma_id": "signature", "repositorio_documental": "diplomas",
         "documento_id": 7, "codigo_autenticidad": "code", "llaves": "{}",
         "firmantes": "[]", "firma_encriptada": "signed", "fecha_creacion": "now",
-        "uuid_documento": "document",
+        "uuid_documento": "signature",
         "hash_sha256": "digest", "qr_url_segura": "https://example.test/qr",
         "activo": False, "pdfa": {"flavour": "2b"},
     }
@@ -111,3 +111,11 @@ def test_other_repositories_do_not_require_dynamodb_configuration(monkeypatch):
             assert postFirmaElectronicaV2([item]) is legacy.return_value
             legacy.assert_called_once_with([item])
             client.assert_not_called()
+
+
+def test_write_rejects_independent_signature_identifier(monkeypatch):
+    monkeypatch.setenv("DIPLOMAS_DYNAMODB_FIRMA_TABLE", "test-diplomas-metadata")
+    with patch("services.document_store._aws_client") as client:
+        with pytest.raises(ValueError, match="firma_id must match uuid_documento"):
+            put_firma_metadata({"firma_id": "signature", "uuid_documento": "document"})
+        client.assert_not_called()

@@ -379,8 +379,9 @@ def postFirmaElectronicaV2(data):
             repositorio_documental = "diplomas"
 
             nombreGenerado = uuid.uuid4()
-            firma_id = str(uuid.uuid4())
             uuid_documento = str(uuid.uuid4())
+            # Una identidad para el PDF, la firma y su partición de metadata.
+            firma_id = uuid_documento
             documento_id = _get_documento_id(item)
             archivoAFirmar = f"./documents/{nombreGenerado}ToSign.pdf"
             archivoFirma = f"./documents/{nombreGenerado}signature.pdf"
